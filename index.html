@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f5f3ef"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob:; worker-src 'self'; connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'"><title>Astralys — A little room for possibility</title><link rel="icon" href="/mark.svg" type="image/svg+xml"></head>
+<body>
+<a class="skip" href="#main">Skip to workspace</a>
+<div class="shell">
+<aside class="sidebar">
+<a class="brand" href="#home" aria-label="Astralys home"><span class="mark" aria-hidden="true">✳</span>astralys<span class="alpha">α</span></a>
+<p class="sidebar-label">YOUR WORKSPACE</p>
+<nav aria-label="Workspace"><button class="nav active" data-category="home" aria-current="page"><span aria-hidden="true">⌂</span>Transform</button><button class="nav" data-category="creative"><span aria-hidden="true">✧</span>Photo studio<span class="nav-tag">BASIC</span></button></nav>
+<p class="sidebar-label formats-label">EXPLORE FORMATS</p>
+<nav aria-label="File categories"><button class="nav" data-category="images">Images<span class="dot" aria-label="Available"></span></button><button class="nav" data-category="video">Video</button><button class="nav" data-category="audio">Audio</button><button class="nav" data-category="pdf">PDF</button><button class="nav" data-category="documents">Documents</button><button class="nav" data-category="archives">Archives</button><button class="nav" data-category="data">Data</button></nav>
+<div class="private-note"><span class="small-star" aria-hidden="true">✳</span><strong>A space of your own.</strong><p>Local image processing.<br>No uploads. No accounts.</p><button class="text-button" id="privacy-button">How privacy works ↗</button></div>
+<div class="version">PRIVATE PREVIEW <span>0.1</span></div>
+</aside>
+<div class="main-column">
+<header class="topbar"><span>THE LOCAL CREATIVE TOOLBOX</span><span class="local-badge"><i aria-hidden="true"></i> On your device</span></header>
+<main id="main" tabindex="-1">
+<section class="hero"><p class="eyebrow" id="eyebrow">LESS FRICTION. MORE MAKING.</p><h1 id="heading">What do you want<br>to <em>transform?</em></h1><p class="intro" id="intro">A new format. A different perspective. Start with a file.<br>Your next step will find you here.</p></section>
+<section id="privacy-panel" class="notice" hidden><h2>Your files stay with you</h2><p>Image processing runs in your browser. Files are held in memory until you clear them or leave. Nothing is uploaded or stored by Astralys. Reloading loses this session; downloaded files remain on your device. Local processing is not a guarantee against malformed files.</p><button id="close-privacy" class="text-button">Close privacy details</button></section>
+<section id="category-panel" class="notice" hidden aria-labelledby="category-title"><h2 id="category-title"></h2><p id="category-copy"></p></section>
+<section class="entry" aria-label="Choose your input">
+<div class="input-tabs" role="group" aria-label="Input type"><button id="file-tab" class="selected" aria-pressed="true">Drop a file</button><button id="link-tab" aria-pressed="false">Paste a link</button></div>
+<div id="file-entry">
+<div id="dropzone" class="dropzone"><div class="orbit" aria-hidden="true"><span class="orbit-ring"></span><span class="file-glyph">↗</span><span class="orbit-spark">✧</span></div><h2>A little change starts here.</h2><p>Drop an image, or choose one to get started.</p><button id="choose-file" class="primary">Choose a file <span aria-hidden="true">↑</span></button><input id="file-input" type="file" accept="image/png,image/jpeg,image/webp" hidden><p class="format-note">PNG, JPEG, WebP · Still images · Up to 20 MiB / 16 MP</p></div>
+<div class="entry-footer"><span>No file handy?</span><button id="sample" class="text-button">Try a sample image <span aria-hidden="true">↗</span></button><span class="local-footnote">Processed here. Stays here.</span></div>
+</div>
+<form id="link-entry" hidden><label for="media-url">Media link</label><p>Check whether a link has a supported workflow. Remote downloading is not enabled.</p><div class="link-row"><input id="media-url" type="url" maxlength="2048" placeholder="https://…" autocomplete="off" spellcheck="false" required><button class="primary" type="submit">Check link</button></div><div id="link-result" class="notice" role="status" hidden></div><p class="format-note">Link checks happen locally. No content is fetched.</p></form>
+</section>
+<div class="status-row" id="status-row"><p id="status" role="status" aria-live="polite">Ready when you are.</p><progress id="progress" aria-label="Image processing" hidden></progress><button id="cancel" class="secondary" hidden>Cancel</button></div>
+<section id="workspace" hidden aria-labelledby="file-name">
+<div class="file-heading"><div><p class="eyebrow">CURRENT FILE</p><h2 id="file-name"></h2><p id="file-details"></p></div><button id="clear" class="secondary">Clear file</button></div>
+<p id="file-warning" class="notice warning" hidden></p>
+<div class="work-grid">
+<div class="preview-column"><div class="preview-stage"><img id="preview" alt="Processed image preview"><span class="preview-label">LOCAL PREVIEW</span></div><div id="photo-tools" hidden><p class="eyebrow">PHOTO · NON-DESTRUCTIVE ADJUSTMENTS</p><div class="photo-buttons"><button id="rotate" class="secondary">Rotate 90°</button><button id="flip" class="secondary">Flip horizontal</button><button id="undo" class="secondary" disabled>Undo</button><button id="reset" class="secondary">Reset original</button></div><p class="small">Your original file is unchanged. Layers and PSD editing are not available yet.</p></div></div>
+<div class="inspector"><p class="eyebrow">SUGGESTED FOR THIS FILE</p><div id="suggestions" class="suggestions"></div><form id="export-form"><h3>Make it yours</h3><label for="format">Output format</label><select id="format"><option value="image/webp">WebP · compact & versatile</option><option value="image/png">PNG · lossless & transparent</option><option value="image/jpeg">JPEG · photos on white</option></select><div class="dimensions"><div><label for="width">Width <span>px</span></label><input id="width" type="number" min="1" max="8192" step="1" required></div><span aria-hidden="true">×</span><div><label for="height">Height <span>px</span></label><input id="height" type="number" min="1" max="8192" step="1" required></div></div><label class="checkbox"><input id="aspect" type="checkbox" checked> Keep aspect ratio</label><div id="quality-row"><label for="quality">Quality <output id="quality-value">85</output></label><input id="quality" type="range" min="10" max="100" value="85"></div><p id="format-help" class="small"></p><p class="metadata-note">✧ Personal metadata removed on export.<br><span>Visible information stays in the image.</span></p><button class="primary full" id="export" type="submit">Create image <span aria-hidden="true">↗</span></button></form><div id="result" class="result" hidden><h3>Your image is ready.</h3><p id="result-info"></p><a id="download" class="download" download>Download image ↓</a></div><details><summary>File inspection</summary><dl id="metadata"></dl><p class="small">Container inspection only. Metadata values are not displayed.</p></details></div>
+</div></section>
+<section class="principles" id="principles"><article><span>01 / START WITH YOUR FILE</span><h3>One input. A clear next step.</h3><p>Useful actions appear when you need them.</p></article><article><span>02 / KEEP IT CLOSE</span><h3>Your browser is the workshop.</h3><p>No upload queue between you and your work.</p></article><article><span>03 / ROOM TO GROW</span><h3>A toolbox, coming together.</h3><p>Images now. More formats as they’re ready.</p></article></section>
+<footer><span>Astralys <span aria-hidden="true">✧</span> Make room for possibility.</span><span>LOCAL FIRST. QUIET BY DESIGN.</span></footer>
+</main></div></div><script type="module" src="/src/main.ts"></script>
+</body></html>

@@ -1,0 +1,32 @@
+{
+  "name": "astralys",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "node scripts/serve.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src tests e2e",
+    "test": "vitest run",
+    "test:browser": "playwright test",
+    "audit": "npm audit --audit-level=moderate",
+    "licenses": "node scripts/licenses.mjs",
+    "check": "npm run typecheck && npm run lint && npm test && npm run build && npm run audit && npm run licenses"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.62.1",
+    "@types/node": "24.10.0",
+    "eslint": "10.12.0",
+    "typescript": "6.0.2",
+    "typescript-eslint": "8.71.1",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
+  }
+}

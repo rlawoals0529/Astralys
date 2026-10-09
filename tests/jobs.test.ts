@@ -1,0 +1,11 @@
+import { expect,it,vi,afterEach } from 'vitest';
+import { JobRunner,ObjectUrlSlot } from '../src/core/jobs';
+import type { WorkerLike } from '../src/core/jobs';
+const fake=():WorkerLike=>({onmessage:null,onerror:null,postMessage:vi.fn(),terminate:vi.fn()});
+afterEach(()=>vi.useRealTimers());
+it('terminates worker on success and detaches handlers',async()=>{const w=fake(),runner=new JobRunner(()=>w);const p=runner.run({file:'test'},()=>{});w.onmessage?.(new MessageEvent('message',{data:{kind:'done',result:42}}));expect(await p).toBe(42);expect(w.terminate).toHaveBeenCalledOnce();expect(w.onmessage).toBeNull();});
+it('cancels immediately and rejects old job on replacement',async()=>{const a=fake(),b=fake();let n=0;const runner=new JobRunner(()=>n++===0?a:b);const old=runner.run({},()=>{});const rejection=expect(old).rejects.toMatchObject({name:'AbortError'});const next=runner.run({},()=>{});await rejection;expect(a.terminate).toHaveBeenCalledOnce();runner.cancel();await expect(next).rejects.toMatchObject({name:'AbortError'});expect(b.terminate).toHaveBeenCalledOnce();});
+it('enforces deadline and terminates failed workers',async()=>{vi.useFakeTimers();const w=fake();const p=new JobRunner(()=>w,20).run({},()=>{});const check=expect(p).rejects.toThrow('timed out');await vi.advanceTimersByTimeAsync(21);await check;expect(w.terminate).toHaveBeenCalledOnce();});
+it('terminates on worker runtime error',async()=>{const w=fake(),p=new JobRunner(()=>w).run({},()=>{});w.onerror?.({} as ErrorEvent);await expect(p).rejects.toThrow('stopped unexpectedly');expect(w.terminate).toHaveBeenCalledOnce();});
+it('terminates when postMessage fails',async()=>{const w=fake();w.postMessage=()=>{throw new Error('bad');};await expect(new JobRunner(()=>w).run({},()=>{})).rejects.toThrow('Unable to start');expect(w.terminate).toHaveBeenCalledOnce();});
+it('revokes old and final object URLs exactly once',()=>{const api={createObjectURL:vi.fn().mockReturnValueOnce('blob:one').mockReturnValueOnce('blob:two'),revokeObjectURL:vi.fn()} as unknown as typeof URL;const slot=new ObjectUrlSlot(api);slot.set(new Blob(['a']));slot.set(new Blob(['b']));expect(api.revokeObjectURL).toHaveBeenCalledWith('blob:one');slot.clear();slot.clear();expect(api.revokeObjectURL).toHaveBeenCalledTimes(2);expect(slot.value).toBe('');});

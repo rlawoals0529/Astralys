@@ -9,7 +9,7 @@ V1 has no remote-media backend, upload endpoint, telemetry, account system, pers
 | XSS through filename/metadata | DOM textContent only; no user HTML, SVG or document embedding | Browser tests inject malicious names; no EXIF field values rendered |
 | Unsafe SVG/PDF/HTML | Never render input in iframe/object; allow only PNG/JPEG/WebP decoding after header inspection | Magic signatures are classification, not malware scanning |
 | MIME/extension spoofing | Byte signatures authoritative; explicit mismatch warning; never trust accept attribute | Malformed structure is rejected before native decode where checked |
-| Decode bombs and memory/CPU exhaustion | 20 MiB input, 16 million pixels, 8192 maximum dimension, one job, bounded output, 30-second worker deadline; predecode header dimensions | Browser/native transient allocations cannot be hard-capped by JS; host memory and codec bugs remain risks |
+| Decode bombs and memory/CPU exhaustion | 20 MiB input, 16 million pixels, 8192 maximum dimension, one job, 4096-chunk/segment cap, bounded output, 30-second worker deadline; predecode header dimensions | Browser/native transient allocations cannot be hard-capped by JS; host memory and codec bugs remain risks |
 | Animated formats | Reject APNG and animated WebP; GIF unsupported | No silent first-frame conversion |
 | Metadata leakage | Re-encode pixels; remove EXIF/XMP/IPTC/comments/ancillary metadata from supported outputs using a structural allowlist | Visible information remains; not anonymization; not a forensic erasure guarantee; color/orientation may change |
 | Worker lifecycle | Terminate on completion, error, cancel, timeout, clear and replacement; stale job token ignored | Test repeated conversions and cancellation |

@@ -31,3 +31,12 @@ Review date: 2026-10-09. Conditional engineering conclusions, not legal approval
 ## Distribution boundary
 
 The shipped browser app uses original code and browser-provided APIs; it does not redistribute browser codec implementations. Original app code is MIT. No bundled fonts/icons/photos: system fonts and original CSS/inline markup only. Development packages and their complete lockfile inventory are recorded separately after installation. Rust spike dependencies are isolated; no Rust/WASM distribution is approved until its resolved licenses and notices are recorded. The audit does not establish trademark clearance, clean-room provenance, third-party patents or a security certification.
+
+## GitHub Actions (CI only)
+
+| Repository | Exact commit | License | Use and obligations |
+| --- | --- | --- | --- |
+| https://github.com/actions/checkout | d23441a48e516b6c34aea4fa41551a30e30af803 | MIT | Unmodified CI tool; retain GitHub copyright/license if redistributed; no UI assets or patent/trademark grant inferred |
+| https://github.com/actions/setup-node | 249970729cb0ef3589644e2896645e5dc5ba9c38 | MIT | Unmodified CI tool; same MIT conditions; not bundled in app |
+
+License files inspected at these revisions. Source modification and commercial distribution permitted under MIT; browser/WASM conversion is not evaluated or proposed for these CI tools. Their own runtime dependency graphs are not copied into Astralys.

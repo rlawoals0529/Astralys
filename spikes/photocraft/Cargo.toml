@@ -1,0 +1,18 @@
+[package]
+name = "astralys-photo-spike"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+photocraft-color = { git = "https://github.com/storytold/photocraft", rev = "2515fa7cee624cf232c873ba283aa0359ec159d7" }
+
+[profile.release]
+opt-level = "s"
+lto = true
+panic = "abort"
+strip = true

@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    groups:
+      development-patches:
+        update-types: [patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+  - package-ecosystem: cargo
+    directory: /spikes/photocraft
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2

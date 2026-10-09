@@ -52,7 +52,7 @@ test('keyboard navigation and focus, category honesty, reduced motion and mobile
 });
 test('production CSP blocks network and inline script, workers still function',async({page,request})=>{
  const response=await request.get('/');expect(response.headers()['content-security-policy']).toContain("connect-src 'none'");expect(response.headers()['content-security-policy']).not.toContain('unsafe-eval');expect(response.headers()['x-content-type-options']).toBe('nosniff');
- const blocked=await page.evaluate(async()=>{try{await fetch('https://example.com/');return false;}catch{return true;}});expect(blocked).toBe(true);await load(page);
+ const blocked=await page.evaluate(async()=>{try{await fetch('https://example.com/');return false;}catch{return true;}});expect(blocked).toBe(true);await page.evaluate(()=>{const s=document.createElement('script');s.textContent="document.documentElement.dataset.inlineScriptRan='yes'";document.head.append(s);});await expect(page.locator('html')).not.toHaveAttribute('data-inline-script-ran','yes');await load(page);
 });
 test('cancelled Photo operation rolls back its pending parameters',async({page})=>{
  await load(page);await page.getByRole('button',{name:'Open in Photo',exact:true}).click();

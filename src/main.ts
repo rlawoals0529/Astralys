@@ -41,7 +41,7 @@ async function process(mode:'inspect'|'export') {
 function formatBytes(n:number) {return n<1024*1024?`${(n/1024).toFixed(1)} KiB`:`${(n/1024/1024).toFixed(2)} MiB`;}
 function renderFile() {
   if(!file||!info)return;
-  el('workspace').hidden=false;el('principles').hidden=true;el('file-name').textContent=file.name;
+  document.body.classList.add('has-file');el('workspace').hidden=false;el('principles').hidden=true;el('file-name').textContent=file.name;
   el('file-details').textContent=`${info.mime.split('/')[1].toUpperCase()} · ${info.width} × ${info.height} · ${formatBytes(file.size)}`;
   el('file-warning').hidden=!info.warning;el('file-warning').textContent=info.warning;
   const metadata=el('metadata');metadata.replaceChildren();
@@ -61,7 +61,7 @@ async function chooseFile(next: File) {
   status('Opening image…');await process('inspect');
 }
 function clearSession(announce=true) {
-  ++requestId;runner.cancel();rollback=undefined;setBusy(false);file=undefined;info=undefined;history.reset();previewUrl.clear();clearOutput();el<HTMLImageElement>('preview').removeAttribute('src');el('workspace').hidden=true;el('principles').hidden=false;input('file-input').value='';if(announce)status('File cleared. Choose another image.');
+  document.body.classList.remove('has-file');++requestId;runner.cancel();rollback=undefined;setBusy(false);file=undefined;info=undefined;history.reset();previewUrl.clear();clearOutput();el<HTMLImageElement>('preview').removeAttribute('src');el('workspace').hidden=true;el('principles').hidden=false;input('file-input').value='';if(announce)status('File cleared. Choose another image.');
 }
 function updateFormat() {
   const format=el<HTMLSelectElement>('format').value;el('quality-row').hidden=format==='image/png';
@@ -104,3 +104,4 @@ el('sample').onclick=async()=> {
 window.addEventListener('pagehide',()=>{++requestId;runner.cancel();previewUrl.clear();clearOutput();file=undefined;info=undefined;});
 window.addEventListener('pageshow',e=>{if(e.persisted)clearSession();});
 updateFormat();
+document.documentElement.dataset.appReady='true';

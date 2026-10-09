@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { inspect } from '../src/core/files';
 import { png, chunk } from '../tests/fixtures';
 async function load(page: import('@playwright/test').Page,name='source.png',mime='image/png',bytes=png()) {await page.locator('#file-input').setInputFiles({name,mimeType:mime,buffer:bytes});await expect(page.locator('#workspace')).toBeVisible();await expect(page.locator('#cancel')).toBeHidden();}
-test.beforeEach(async({page})=>{await page.goto('/');});
+test.beforeEach(async({page})=>{const response=await page.goto('/',{waitUntil:'domcontentloaded'});expect(response?.ok()).toBe(true);await expect(page.locator('html')).toHaveAttribute('data-app-ready','true');});
 test('original sample opens and the Photo workspace fits desktop and mobile',async({page},testInfo)=>{
  await page.screenshot({path:testInfo.outputPath('home-desktop.png'),fullPage:true});
  await page.locator('#sample').click();await expect(page.locator('#workspace')).toBeVisible();await expect(page.locator('#cancel')).toBeHidden();
@@ -52,7 +52,7 @@ test('cancellation terminates stalled worker and a new file recovers',async({pag
 });
 test('clear releases file and generated preview state',async({page})=>{await load(page);await page.getByRole('button',{name:'Create image'}).click();await expect(page.locator('#download')).toBeVisible();await page.getByRole('button',{name:'Clear file'}).click();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#preview')).not.toHaveAttribute('src',/blob:/);await expect(page.locator('#download')).not.toHaveAttribute('href',/blob:/);await expect(page.locator('#choose-file')).toBeFocused();});
 test('links are classified without making any remote request',async({page})=>{
- const requests:string[]=[];page.on('request',r=>requests.push(r.url()));await page.getByRole('button',{name:'Paste a link'}).click();await page.locator('#media-url').fill('https://www.youtube.com/watch?v=test');await page.getByRole('button',{name:'Check link'}).click();await expect(page.locator('#link-result')).toContainText('gated');await page.locator('#media-url').fill('https://127.0.0.1/private.mp4');await page.getByRole('button',{name:'Check link'}).click();await expect(page.locator('#link-result')).toContainText('not enabled');expect(requests).toEqual([]);
+ const requests:string[]=[];const favicon=new URL('/mark.svg',page.url()).href;page.on('request',r=>{if(r.url()!==favicon||['fetch','xhr'].includes(r.resourceType()))requests.push(r.url());});await page.getByRole('button',{name:'Paste a link'}).click();await page.locator('#media-url').fill('https://www.youtube.com/watch?v=test');await page.getByRole('button',{name:'Check link'}).click();await expect(page.locator('#link-result')).toContainText('gated');await page.locator('#media-url').fill('https://127.0.0.1/private.mp4');await page.getByRole('button',{name:'Check link'}).click();await expect(page.locator('#link-result')).toContainText('not enabled');expect(requests).toEqual([]);
 });
 test('keyboard navigation and focus, category honesty, reduced motion and mobile layout',async({page})=>{
  await page.emulateMedia({reducedMotion:'reduce'});await page.keyboard.press('Tab');await expect(page.getByText('Skip to workspace')).toBeFocused();await page.keyboard.press('Enter');await expect(page.locator('#main')).toBeFocused();

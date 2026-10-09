@@ -3,3 +3,10 @@
 @media(max-width:1000px){.shell{grid-template-columns:190px 1fr}.sidebar{padding:25px 14px}.brand{font-size:25px}.topbar{padding:0 5%;height:66px}main{padding:36px 5% 24px}.work-grid{grid-template-columns:1fr}.preview-stage{min-height:280px}.inspector{max-width:none}.principles{gap:15px}.local-footnote{display:none}}
 @media(max-width:650px){.shell{display:block}.sidebar{border-right:0;border-bottom:1px solid var(--line);padding:17px 20px}.brand{margin:0 0 15px;font-size:25px}.sidebar nav{display:flex;overflow-x:auto;gap:6px}.sidebar nav:first-of-type{margin-bottom:8px}.nav{width:auto;white-space:nowrap;margin:0;padding:8px 12px;font-size:12px}.sidebar-label,.private-note,.version,.nav-tag{display:none}.sidebar nav[aria-label="File categories"]{padding-bottom:3px}.topbar{height:49px;padding:0 20px;font-size:8px}.local-badge{font-size:9px;padding:5px 8px}main{padding:28px 20px}h1{font-size:43px;letter-spacing:-1.5px}.hero{margin-bottom:25px}.intro{font-size:12px}.intro br{display:none}.dropzone{padding:15px 5px}.entry-footer{padding:12px 15px}.principles{grid-template-columns:1fr;gap:20px;padding-top:15px}.principles article{padding-bottom:15px;border-bottom:1px solid var(--line)}.principles h3{margin-top:8px}footer{gap:10px;line-height:1.7}footer>span:last-child{display:none}.link-row{flex-direction:column}.file-heading{align-items:flex-start}.file-heading h2{font-size:20px}.file-heading button{flex-shrink:0}.preview-stage{padding:20px;min-height:220px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+
+/* Keep the active file in view instead of repeating full onboarding. */
+.has-file .hero,.has-file .dropzone .orbit,.has-file .dropzone h2,.has-file .dropzone .format-note,.has-file .entry-footer{display:none}
+.has-file .dropzone{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:5px 14px}
+.has-file .dropzone>p:not(.format-note){margin:0;text-align:left}
+.has-file .dropzone .primary{flex-shrink:0}
+.skip:not(:focus){clip-path:inset(50%)}

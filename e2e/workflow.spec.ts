@@ -74,3 +74,16 @@ test('drag and drop loads a single real image',async({page})=>{
  const transfer=await page.evaluateHandle(bytes=>{const dt=new DataTransfer();dt.items.add(new File([new Uint8Array(bytes)],'dropped.png',{type:'image/png'}));return dt;},Array.from(png()));
  await page.locator('#dropzone').dispatchEvent('drop',{dataTransfer:transfer});await expect(page.locator('#file-name')).toHaveText('dropped.png');await expect(page.locator('#cancel')).toBeHidden();await transfer.dispose();
 });
+
+test('small supporting text meets normal-text contrast',async({page})=>{
+ const ratios=await page.locator('.topbar>span:first-child,.eyebrow,.format-note,.entry-footer,.principles article>span,footer,.sidebar-label,.version').evaluateAll(elements=>{
+  const rgb=(value:string)=>value.match(/[\d.]+/g)!.map(Number);
+  const luminance=(channels:number[])=>channels.slice(0,3).map(v=>{const n=v/255;return n<=0.04045?n/12.92:((n+0.055)/1.055)**2.4;}).reduce((sum,n,i)=>sum+n*[0.2126,0.7152,0.0722][i],0);
+  return elements.filter(e=>e.getBoundingClientRect().height>0).map(e=>{
+   const foreground=rgb(getComputedStyle(e).color);let node:Element|null=e,background=[255,255,255];
+   while(node){const color=rgb(getComputedStyle(node).backgroundColor);if(color.length===3||color[3]===1){background=color;break;}node=node.parentElement;}
+   const a=luminance(foreground),b=luminance(background);return {text:e.textContent?.trim().slice(0,40),ratio:(Math.max(a,b)+0.05)/(Math.min(a,b)+0.05)};
+  });
+ });
+ expect(ratios.length).toBeGreaterThan(5);for(const result of ratios)expect(result.ratio,result.text).toBeGreaterThanOrEqual(4.5);
+});

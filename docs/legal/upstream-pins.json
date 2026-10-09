@@ -1,0 +1,88 @@
+{
+  "reviewed": "2026-10-09",
+  "craft": {
+    "photocraft": {
+      "repository": "https://github.com/storytold/photocraft",
+      "commit": "2515fa7cee624cf232c873ba283aa0359ec159d7"
+    },
+    "vectorcraft": {
+      "repository": "https://github.com/storytold/vectorcraft",
+      "commit": "008b5e6d6cd6f3e569cc4fcfcd17e6099cf60bb2"
+    },
+    "filmcraft": {
+      "repository": "https://github.com/storytold/filmcraft",
+      "commit": "5231852443363f001c3f6b396dd9b1e6461ae2be"
+    },
+    "lightcraft": {
+      "repository": "https://github.com/storytold/lightcraft",
+      "commit": "c435d143de921e8dc724245065500bc191f91102"
+    },
+    "pdfcraft": {
+      "repository": "https://github.com/storytold/pdfcraft",
+      "commit": "a6bc63a497954af87c1cd5a2a1e72e928a11c039"
+    },
+    "effectcraft": {
+      "repository": "https://github.com/storytold/effectcraft",
+      "commit": "cae67546dd8db672706698a3ad897b758b0339f3"
+    },
+    "designcraft": {
+      "repository": "https://github.com/storytold/designcraft",
+      "commit": "14e677b24216396e398823ff034d9882322362d1"
+    }
+  },
+  "other": [
+    {
+      "name": "ffmpeg",
+      "repo": "FFmpeg/FFmpeg",
+      "sha": "c766e0de78b0239a36e49e50573e2297a7b500b4",
+      "files": [
+        "COPYING.GPLv2",
+        "COPYING.LGPLv2.1",
+        "LICENSE.md",
+        "README.md"
+      ]
+    },
+    {
+      "name": "ffmpeg.wasm",
+      "repo": "ffmpegwasm/ffmpeg.wasm",
+      "sha": "f876f907c7e9b9bf51d4ed0b913a855a63ae63fc",
+      "files": [
+        "Dockerfile",
+        "LICENSE",
+        "README.md",
+        "build/ffmpeg.sh",
+        "build/x264.sh",
+        "package.json"
+      ]
+    },
+    {
+      "name": "yt-dlp",
+      "repo": "yt-dlp/yt-dlp",
+      "sha": "51bab8a0116f4d8004c315706d809782607d5847",
+      "files": [
+        "LICENSE",
+        "README.md"
+      ]
+    },
+    {
+      "name": "pdf-lib",
+      "repo": "Hopding/pdf-lib",
+      "sha": "93dd36e85aa659a3bca09867d2d8fac172501fbe",
+      "files": [
+        "LICENSE.md",
+        "README.md",
+        "package.json"
+      ]
+    },
+    {
+      "name": "fflate",
+      "repo": "101arrowz/fflate",
+      "sha": "dcb3714a6c25db3a2748641019c5277413d09714",
+      "files": [
+        "LICENSE",
+        "README.md",
+        "package.json"
+      ]
+    }
+  ]
+}

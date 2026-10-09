@@ -4,6 +4,16 @@ import { inspect } from '../src/core/files';
 import { png, chunk } from '../tests/fixtures';
 async function load(page: import('@playwright/test').Page,name='source.png',mime='image/png',bytes=png()) {await page.locator('#file-input').setInputFiles({name,mimeType:mime,buffer:bytes});await expect(page.locator('#workspace')).toBeVisible();await expect(page.locator('#cancel')).toBeHidden();}
 test.beforeEach(async({page})=>{await page.goto('/');});
+test('original sample opens and the Photo workspace fits desktop and mobile',async({page},testInfo)=>{
+ await page.screenshot({path:testInfo.outputPath('home-desktop.png'),fullPage:true});
+ await page.locator('#sample').click();await expect(page.locator('#workspace')).toBeVisible();await expect(page.locator('#cancel')).toBeHidden();
+ await expect(page.locator('#width')).toHaveValue('960');await expect(page.locator('#height')).toHaveValue('640');
+ await page.getByRole('button',{name:'Open in Photo',exact:true}).click();await expect(page.locator('#photo-tools')).toBeVisible();
+ await page.screenshot({path:testInfo.outputPath('photo-desktop.png'),fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:testInfo.outputPath('photo-mobile.png'),fullPage:true});
+});
 test('exports real resized PNG, JPEG and WebP with no metadata and repeatable downloads',async({page})=>{
  await load(page);
  await page.locator('#width').fill('4');await expect(page.locator('#height')).toHaveValue('2');

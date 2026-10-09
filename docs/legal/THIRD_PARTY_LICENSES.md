@@ -38,5 +38,6 @@ The shipped browser app uses original code and browser-provided APIs; it does no
 | --- | --- | --- | --- |
 | https://github.com/actions/checkout | d23441a48e516b6c34aea4fa41551a30e30af803 | MIT | Unmodified CI tool; retain GitHub copyright/license if redistributed; no UI assets or patent/trademark grant inferred |
 | https://github.com/actions/setup-node | 249970729cb0ef3589644e2896645e5dc5ba9c38 | MIT | Unmodified CI tool; same MIT conditions; not bundled in app |
+| https://github.com/actions/upload-artifact | ea165f8d65b6e75b540449e92b4886f43607fa02 | MIT | Unmodified CI tool for synthetic-test screenshots/reports retained 7 days; GitHub 2018 copyright/license if redistributed; no assets copied, no express patent/trademark grant, not bundled in app |
 
 License files inspected at these revisions. Source modification and commercial distribution permitted under MIT; browser/WASM conversion is not evaluated or proposed for these CI tools. Their own runtime dependency graphs are not copied into Astralys.

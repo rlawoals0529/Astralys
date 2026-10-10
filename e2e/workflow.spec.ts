@@ -507,3 +507,105 @@ test('cancelling a tonal edit restores its original parameter and pixels',async(
  await expect(page.getByRole('button',{name:'Undo',exact:true})).toBeDisabled();
  await page.unroute('**/assets/image.worker-*.js');
 });
+
+test('single export presets avoid upscaling, preserve aspect and follow rotated crop',async({page})=>{
+ await load(page,'big.png','image/png',png(1200,800,false));
+ await expect(page.locator('#size-preset')).toHaveValue('original');
+ await page.locator('#size-preset').selectOption('long-800');
+ await expect(page.locator('#width')).toHaveValue('800');
+ await expect(page.locator('#height')).toHaveValue('533');
+ await expect(page.locator('#size-preset-help')).toContainText('without cropping or upscaling');
+ await page.locator('#width').fill('400');
+ await expect(page.locator('#size-preset')).toHaveValue('custom');
+ await expect(page.locator('#height')).toHaveValue('267');
+ await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
+ await page.locator('#size-preset').selectOption('long-800');
+ await page.getByRole('button',{name:'Rotate 90°'}).click();
+ await expect(page.locator('#cancel')).toBeHidden();
+ await expect(page.locator('#size-preset')).toHaveValue('long-800');
+ await expect(page.locator('#width')).toHaveValue('533');
+ await expect(page.locator('#height')).toHaveValue('800');
+ await page.locator('#frame-select').selectOption('square');
+ await page.getByRole('button',{name:'Apply crop'}).click();
+ await expect(page.locator('#cancel')).toBeHidden();
+ await expect(page.locator('#width')).toHaveValue('800');
+ await expect(page.locator('#height')).toHaveValue('800');
+ await page.locator('#size-preset').selectOption('long-1200');
+ await expect(page.locator('#width')).toHaveValue('800');
+ await expect(page.locator('#size-preset-help')).toContainText('No upscaling');
+ await page.locator('#format').selectOption('image/png');
+ await page.getByRole('button',{name:'Create image'}).click();
+ const waiting=page.waitForEvent('download');
+ await page.getByRole('link',{name:'Download image'}).click();
+ const download=await waiting;
+ const bytes=await readFile((await download.path())!);
+ expect(inspect(bytes)).toMatchObject({mime:'image/png',width:800,height:800,metadata:[]});
+});
+
+test('batch size presets cap the long edge without enlarging tiny files',async({page})=>{
+ await page.locator('#batch-files').setInputFiles([
+  {name:'landscape.png',mimeType:'image/png',buffer:png(1600,900,false)},
+  {name:'tiny.png',mimeType:'image/png',buffer:png(16,9,false)}
+ ]);
+ await page.locator('#batch-format').selectOption('image/webp');
+ await page.locator('#batch-size').selectOption('long-800');
+ await page.getByRole('button',{name:'Convert selected'}).click();
+ await expect(page.locator('#batch-status')).toContainText('2 ready, 0 failed');
+ await expect(page.locator('#batch-results')).toContainText('800 × 450');
+ await expect(page.locator('#batch-results')).toContainText('16 × 9');
+ for(const [label,w,h] of [['Download file 1',800,450],['Download file 2',16,9]] as const){
+  const waiting=page.waitForEvent('download');
+  await page.getByRole('link',{name:label}).click();
+  const download=await waiting;
+  expect(inspect(await readFile((await download.path())!))).toMatchObject({mime:'image/webp',width:w,height:h,metadata:[]});
+ }
+});
+
+test('photo-like gradient with alpha survives local PNG/JPEG re-encoding and records export evidence',async({page},testInfo)=>{
+ const array=await page.evaluate(async()=>{
+  const canvas=document.createElement('canvas');canvas.width=640;canvas.height=400;
+  const ctx=canvas.getContext('2d')!;
+  const grad=ctx.createLinearGradient(0,0,640,400);
+  grad.addColorStop(0,'#122d52');grad.addColorStop(0.5,'#c69e74');grad.addColorStop(1,'#ffb877');
+  ctx.fillStyle=grad;ctx.fillRect(0,0,640,400);
+  ctx.fillStyle='#427534';
+  for(let i=0;i<35;i++){ctx.beginPath();ctx.arc((i*47)%640,(i*79)%400,5+(i%3)*4,0,Math.PI*2);ctx.fill();}
+  ctx.clearRect(0,0,72,72);
+  const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('Fixture encode failed')),'image/png'));
+  return Array.from(new Uint8Array(await blob.arrayBuffer()));
+ });
+ const bytes=Buffer.from(array);
+ await load(page,'landscape.png','image/png',bytes);
+ await page.locator('#size-preset').selectOption('long-800');
+ await expect(page.locator('#width')).toHaveValue('640');
+ await page.locator('#format').selectOption('image/png');
+ await page.getByRole('button',{name:'Create image'}).click();
+ let pending=page.waitForEvent('download');
+ await page.getByRole('link',{name:'Download image'}).click();
+ const pngOut=await readFile((await (await pending).path())!);
+ expect(inspect(pngOut)).toMatchObject({mime:'image/png',width:640,height:400,metadata:[]});
+ const start=Date.now();
+ await page.locator('#width').fill('320');
+ await expect(page.locator('#size-preset')).toHaveValue('custom');
+ await page.locator('#format').selectOption('image/jpeg');
+ await page.locator('#quality').evaluate(node=>{const range=node as HTMLInputElement;range.value='90';range.dispatchEvent(new Event('input',{bubbles:true}));});
+ await page.getByRole('button',{name:'Create image'}).click();
+ pending=page.waitForEvent('download');
+ await page.getByRole('link',{name:'Download image'}).click();
+ const jpegOut=await readFile((await (await pending).path())!);
+ expect(inspect(jpegOut)).toMatchObject({mime:'image/jpeg',width:320,height:200,metadata:[]});
+ const samples=await page.evaluate(async(raw)=>{
+  const b=await createImageBitmap(new Blob([new Uint8Array(raw)],{type:'image/jpeg'}));
+  const can=document.createElement('canvas');can.width=b.width;can.height=b.height;
+  const ctx=can.getContext('2d')!;ctx.drawImage(b,0,0);b.close();
+  return {corner:Array.from(ctx.getImageData(5,5,1,1).data),scene:Array.from(ctx.getImageData(200,120,1,1).data)};
+ },Array.from(jpegOut));
+ expect(samples.corner.slice(0,3).every(v=>v>245)).toBe(true);
+ expect(Math.max(...samples.scene.slice(0,3))-Math.min(...samples.scene.slice(0,3))).toBeGreaterThan(10);
+ const evidence={fixture:'deterministic synthetic landscape-like gradient with opaque detail and transparent corner',
+  sourceBytes:bytes.length,pngBytes:pngOut.length,jpegBytes:jpegOut.length,
+  outputDimensions:'320x200',sampledCorner:samples.corner,sampledScene:samples.scene,
+  downloadAndProcessingElapsedMs:Date.now()-start,notes:'Synthetic fidelity evidence, NOT real-photograph ICC or browser RSS measurement'};
+ await testInfo.attach('image-fidelity-evidence.json',{body:JSON.stringify(evidence,null,2),contentType:'application/json'});
+ await expect(page.locator('#size-preset-help')).toContainText('Custom dimensions');
+});

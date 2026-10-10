@@ -61,3 +61,7 @@
 #preview.redact-armed{cursor:crosshair;touch-action:none}
 .redact-outline{position:absolute;pointer-events:none;border:2px solid #f2f2f2;outline:1px solid #333;background:#12121280;z-index:3}
 @media(max-width:650px){.batch-panel{padding:16px}.batch-fields{display:grid;grid-template-columns:minmax(0,1fr)}.batch-fields>*{max-width:100%}}
+
+/* Even tiny source images need a usable pointer target for opaque area selection. */
+.preview-stage img.redact-armed{min-width:min(180px,100%);height:auto}
+.preview-stage.compare-mode>img#preview.redact-armed{width:min(180px,100%);min-width:min(180px,100%);height:auto}

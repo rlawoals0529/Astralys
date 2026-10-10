@@ -32,3 +32,36 @@
 .preview-stage.compare-mode .preview-label{left:auto;right:12px;bottom:12px}
 #compare[aria-pressed="true"]{background:#e3dce9;border-color:#a38fb0;color:#49365d}
 @media(max-width:650px){.preview-stage.compare-mode{grid-template-columns:minmax(0,1fr);padding:15px;gap:12px}.comparison-original{min-height:140px}.comparison-original img{max-height:205px}.preview-stage.compare-mode>img#preview{max-height:205px}}
+
+/* Local batch queue. Results are explicit links; never auto-download files. */
+.batch-panel{margin:18px 0 10px;padding:20px 22px;border:1px solid var(--line);background:#faf9f6;border-radius:10px}
+.batch-heading h2{font:400 22px Georgia,serif;margin:0 0 6px}
+.batch-heading p:last-child{margin:0 0 16px;line-height:1.6;font-size:12px;color:var(--muted)}
+.batch-fields{display:flex;align-items:end;flex-wrap:wrap;gap:12px}
+.batch-fields>div{min-width:min(210px,100%);flex:1}
+.batch-fields label,.tone-grid label,.redact-grid label{display:block;font-size:12px;margin-bottom:6px;color:#444553}
+.batch-fields select,.batch-fields input{width:100%;max-width:100%;padding:9px;border-radius:4px;border:1px solid #cfcbd5;background:white;font-size:12px}
+.batch-panel .small{font-size:11px;color:#626571;margin:14px 0}
+#batch-status{font-size:12px;line-height:1.7}
+.batch-results{padding-left:20px;display:grid;gap:8px;list-style:decimal}
+.batch-results li{font-size:12px;line-height:1.5;overflow-wrap:anywhere;min-width:0}
+.batch-results a{display:inline-block;margin-left:12px;color:#523772;text-decoration:underline}
+.batch-results .batch-error{color:#9b352c}
+.tone-controls,.redact-controls{margin-top:18px;border:1px solid var(--line);border-radius:8px;padding:14px 16px;background:#faf9f6}
+.tone-controls .small,.redact-controls .small{font-size:11px;color:#626571;line-height:1.6}
+.tone-grid{display:grid;gap:12px;margin:12px 0}
+.tone-grid>div{min-width:0}
+.tone-grid label{display:flex;justify-content:space-between}
+.tone-grid input{width:100%;accent-color:var(--accent)}
+.tone-grid output{font-variant-numeric:tabular-nums}
+.redact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
+.redact-grid input{width:100%;padding:7px;border:1px solid var(--line);border-radius:4px}
+.redact-controls button+button{margin-left:8px}
+#redact-draw[aria-pressed="true"]{border-color:#ad7676;background:#f7e6e3;color:#713c37}
+#preview.redact-armed{cursor:crosshair;touch-action:none}
+.redact-outline{position:absolute;pointer-events:none;border:2px solid #f2f2f2;outline:1px solid #333;background:#12121280;z-index:3}
+@media(max-width:650px){.batch-panel{padding:16px}.batch-fields{display:grid;grid-template-columns:minmax(0,1fr)}.batch-fields>*{max-width:100%}}
+
+/* Even tiny source images need a usable pointer target for opaque area selection. */
+.preview-stage img.redact-armed{min-width:min(180px,100%);height:auto}
+.preview-stage.compare-mode>img#preview.redact-armed{width:min(180px,100%);min-width:min(180px,100%);height:auto}

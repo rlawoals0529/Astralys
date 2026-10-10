@@ -13,7 +13,7 @@ No production/development package was added; lockfiles are unchanged. No third-p
 - `npm run check`: PASS: typecheck, lint, **57 tests / 4 files**, build, npm audit (0 findings), license allowlist (158 locked / 134 installed).
 - Independent verifier: Poppler `pdfinfo` 26.05.0 accepted a synthetic 8×4 RGB image output as one PDF 1.4 page, 6×3 pt, no metadata stream, JavaScript, forms or encryption.
 - `pdftoppm -png -singlefile -scale-to 80`: PASS, 80×40 raster; center pixel (210,60,121), within 1 channel level of source (210,60,120). This is a generated synthetic fixture, not user data. Verifier tools and generated files are not shipped.
-- Browser suite: 30 cases across Chromium and Firefox, including PDF download MIME/header, geometry, sanitized filename, embedded JPEG metadata, repeated PDF export and preview preservation. Hosted execution pending at this commit; do not treat this line as a pass.
+- Browser suite: 30 cases across Chromium and Firefox, including PDF download MIME/header, geometry, sanitized filename, embedded JPEG metadata, repeated PDF export and preview preservation. Initial run 38025449877: PDF export passed in both browsers; 28/30 cases passed, with two Firefox beforeEach navigation timeouts. Traces show HTTP 200 for the document/assets and a rendered app. Full-suite verification remains pending after the targeted startup recovery below.
 - Unit checks include xref byte offsets, 20-byte entries, binary stream length, deterministic output, input immutability, malformed JPEG, unsupported components/precision, dimension and output-size bounds.
 
 ## Limits and next step
@@ -21,3 +21,7 @@ No production/development package was added; lockfiles are unchanged. No third-p
 This does not provide a general PDF parser, merge/split, text extraction, signatures, forms or accessible/tagged document creation. JPEG is lossy and browser color behavior may vary. Local decode still depends on browser codec safety. No new remote access or persistence exists.
 
 Finish hosted verification, then expand the isolated PhotoCraft bridge to bounded pixel buffers and meaningful native/WASM parity. The reusable [resume prompt](../RESUME_PROMPT.md) describes current constraints and how a new chat should verify state before acting.
+
+## Browser harness finding
+
+The first PDF run exposed Firefox navigation bookkeeping stalls even with `waitUntil: commit`. The symptom matches upstream https://github.com/microsoft/playwright/issues/42183 (inspected 10 October 2026), but this is a diagnosis by evidence, not a confirmed upstream root cause. Original harness code permits one superseding navigation only after a Firefox navigation TimeoutError, successful document response, exact local URL, complete document/resources, app-ready marker and no page/request errors. It records a report annotation and JSON attachment. Both navigations use bounded 10-second deadlines within the existing 30-second test budget. HTTP success, app readiness and every functional assertion remain required. No whole-test retries, security-header changes or test skipping. No upstream implementation was copied.

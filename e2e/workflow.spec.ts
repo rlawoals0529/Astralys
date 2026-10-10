@@ -484,14 +484,14 @@ test('black redaction destroys selected output pixels across PNG export and is u
  await expect(page.locator('#cancel')).toBeHidden();
  await page.getByRole('button',{name:'Select redaction on preview'}).click();
  await expect(page.locator('#redact-draw')).toHaveAttribute('aria-pressed','true');
- await page.locator('#preview').evaluate(node=>{(window as unknown as {__redactTrace:string[]}).__redactTrace=[];for(const type of ['pointerdown','pointermove','pointerup','pointercancel'])node.addEventListener(type,(event)=>{const e=event as PointerEvent;(window as unknown as {__redactTrace:string[]}).__redactTrace.push(type+':'+e.pointerId+':'+e.button);});});
  const image=page.locator('#preview'),box=await image.boundingBox();expect(box).toBeTruthy();
  expect(box!.width).toBeGreaterThanOrEqual(100);
+ expect(box!.y).toBeGreaterThanOrEqual(0);
+ expect(box!.y+box!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
  await page.mouse.move(box!.x+box!.width*0.15,box!.y+box!.height*0.2);
  await page.mouse.down();
  await page.mouse.move(box!.x+box!.width*0.5,box!.y+box!.height*0.8,{steps:6});
  await page.mouse.up();
- console.log('Redaction pointer diagnostics:',JSON.stringify(await page.evaluate(()=>({events:(window as unknown as {__redactTrace:string[]}).__redactTrace,armed:document.getElementById('redact-draw')?.getAttribute('aria-pressed'),status:document.getElementById('status')?.textContent,dimensions:document.getElementById('preview')?.getBoundingClientRect().toJSON()}))));
  await expect(page.locator('#redact-count')).toContainText('1 / 10');
  await expect(page.locator('#redact-draw')).toHaveAttribute('aria-pressed','false');
 });

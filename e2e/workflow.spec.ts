@@ -484,6 +484,7 @@ test('black redaction destroys selected output pixels across PNG export and is u
  await expect(page.locator('#cancel')).toBeHidden();
  await page.getByRole('button',{name:'Select redaction on preview'}).click();
  const image=page.locator('#preview'),box=await image.boundingBox();expect(box).toBeTruthy();
+ expect(box!.width).toBeGreaterThanOrEqual(100);
  await page.mouse.move(box!.x+box!.width*0.15,box!.y+box!.height*0.2);
  await page.mouse.down();
  await page.mouse.move(box!.x+box!.width*0.5,box!.y+box!.height*0.8,{steps:6});

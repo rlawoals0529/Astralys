@@ -3,7 +3,7 @@ import { checkDimensions, checkSize, safeName, suggestedActions } from './core/f
 import type { ImageInfo, ImageMime } from './core/files';
 import { JobRunner, ObjectUrlSlot } from './core/jobs';
 import { classifyMediaLink } from './core/media';
-import { PhotoHistory } from './core/photo';
+import { PhotoHistory, isFramePreset } from './core/photo';
 import type { ImageJob, ImageResult } from './workers/image.worker';
 function el<T extends HTMLElement = HTMLElement>(id: string): T { const node=document.getElementById(id); if(!node)throw new Error(`Missing element ${id}`);return node as T; }
 const runner=new JobRunner(()=>new Worker(new URL('./workers/image.worker.ts',import.meta.url),{type:'module'}));
@@ -13,7 +13,7 @@ let file: File | undefined, info: ImageInfo | undefined, requestId=0, busy=false
 const status=(message:string,error=false)=> {el('status').textContent=message;el('status-row').classList.toggle('error',error);};
 const input=(id:string)=>el<HTMLInputElement>(id);
 function clearOutput() {outputUrl.clear();el('result').hidden=true;el('download').removeAttribute('href');}
-function setBusy(value:boolean) {busy=value;el('cancel').hidden=!value;el('progress').hidden=!value;el('workspace').setAttribute('aria-busy',String(value));for(const field of document.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLButtonElement>('#export-form input, #export-form select, #suggestions button'))field.disabled=value;for(const id of ['export','pdf-export','rotate','flip','reset','sample']) el<HTMLButtonElement>(id).disabled=value;el<HTMLButtonElement>('undo').disabled=value||!history.canUndo;}
+function setBusy(value:boolean) {busy=value;el('cancel').hidden=!value;el('progress').hidden=!value;el('workspace').setAttribute('aria-busy',String(value));for(const field of document.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLButtonElement>('#export-form input, #export-form select, #suggestions button'))field.disabled=value;for(const id of ['export','pdf-export','rotate','flip','reset','sample','frame-apply']) el<HTMLButtonElement>(id).disabled=value;el<HTMLSelectElement>('frame-select').disabled=value;el<HTMLButtonElement>('undo').disabled=value||!history.canUndo;}
 function settings(mode:'inspect'|'export'|'pdf'): ImageJob {
   if(!file) throw new Error('Choose an image first.');
   const width=Number(input('width').value),height=Number(input('height').value);
@@ -35,7 +35,7 @@ async function process(mode:'inspect'|'export'|'pdf') {
       el('result-info').textContent=`${result.width} × ${result.height} · ${formatBytes(result.blob.size)} · ${result.blob.type.split('/')[1].toUpperCase()}. Original file unchanged.`;
       el('result-title').textContent=mode==='pdf'?'Your PDF is ready.':'Your image is ready.';link.textContent=mode==='pdf'?'Download PDF ↓':'Download image ↓';el('result').hidden=false;status(mode==='pdf'?'Your single-page PDF is ready to download.':'Your image is ready to download.');link.focus();
     }
-  } catch(error) {if(id!==requestId)return;rollback?.();rollback=undefined;status(error instanceof Error?error.message:'Unable to process this image.',!(error instanceof DOMException && error.name==='AbortError'));}
+  } catch(error) {if(id!==requestId)return;rollback?.();rollback=undefined;el<HTMLSelectElement>('frame-select').value=history.current.frame;status(error instanceof Error?error.message:'Unable to process this image.',!(error instanceof DOMException && error.name==='AbortError'));}
   finally {if(id===requestId)setBusy(false);}
 }
 function formatBytes(n:number) {return n<1024*1024?`${(n/1024).toFixed(1)} KiB`:`${(n/1024/1024).toFixed(2)} MiB`;}
@@ -54,7 +54,7 @@ function renderFile() {
     if(action==='Resize'){input('width').focus();return;}
     el<HTMLSelectElement>('format').value=action==='Remove metadata'?info!.mime:action==='Convert to PNG'?'image/png':'image/webp';updateFormat();void process('export');
   };list.append(b);}
-  el('photo-tools').hidden=!photoOpen;updateFormat();
+  el('photo-tools').hidden=!photoOpen;el<HTMLSelectElement>('frame-select').value=history.current.frame;updateFormat();
 }
 async function chooseFile(next: File) {
   clearSession(false);file=next;
@@ -62,7 +62,7 @@ async function chooseFile(next: File) {
   status('Opening image…');await process('inspect');
 }
 function clearSession(announce=true) {
-  document.body.classList.remove('has-file');++requestId;runner.cancel();rollback=undefined;setBusy(false);file=undefined;info=undefined;history.reset();previewUrl.clear();clearOutput();el<HTMLImageElement>('preview').removeAttribute('src');el('workspace').hidden=true;el('principles').hidden=false;input('file-input').value='';if(announce)status('File cleared. Choose another image.');
+  document.body.classList.remove('has-file');++requestId;runner.cancel();rollback=undefined;setBusy(false);file=undefined;info=undefined;history.reset();el<HTMLSelectElement>('frame-select').value='original';previewUrl.clear();clearOutput();el<HTMLImageElement>('preview').removeAttribute('src');el('workspace').hidden=true;el('principles').hidden=false;input('file-input').value='';if(announce)status('File cleared. Choose another image.');
 }
 function updateFormat() {
   const format=el<HTMLSelectElement>('format').value;el('quality-row').hidden=format==='image/png';
@@ -76,7 +76,7 @@ drop.ondragover=e=>{e.preventDefault();drop.classList.add('dragging');};drop.ond
 drop.ondrop=e=>{e.preventDefault();drop.classList.remove('dragging');const files=e.dataTransfer?.files;if(files?.length!==1){status('Choose one image at a time.',true);return;}void chooseFile(files[0]);};
 // Prevent accidental file navigation when a drop misses the target.
 window.addEventListener('dragover',e=>e.preventDefault());window.addEventListener('drop',e=>e.preventDefault());
-el('cancel').onclick=()=>{++requestId;runner.cancel();rollback?.();rollback=undefined;setBusy(false);status('Cancelled. Your original file is unchanged.');};
+el('cancel').onclick=()=>{++requestId;runner.cancel();rollback?.();rollback=undefined;el<HTMLSelectElement>('frame-select').value=history.current.frame;setBusy(false);status('Cancelled. Your original file is unchanged.');};
 el('clear').onclick=()=>{clearSession();el('choose-file').focus();};
 el('export-form').onsubmit=e=>{e.preventDefault();if(!busy)void process('export');};
 el('pdf-export').onclick=()=>{if(!busy)void process('pdf');};
@@ -84,6 +84,7 @@ el('format').onchange=()=>{clearOutput();updateFormat();};
 input('quality').oninput=()=>{el('quality-value').textContent=input('quality').value;clearOutput();};
 for(const [changed,other] of [['width','height'],['height','width']])input(changed).oninput=()=> {clearOutput();if(input('aspect').checked){const n=Number(input(changed).value);if(Number.isFinite(n)&&n>0)input(other).value=String(Math.max(1,Math.round(changed==='width'?n/ratio:n*ratio)));}};
 for(const [id,action] of [['rotate',()=>history.rotate()],['flip',()=>history.flip()],['undo',()=>history.undo()],['reset',()=>history.reset()]] as const)el(id).onclick=()=>{if(busy)return;const checkpoint=history.checkpoint();rollback=()=>history.restore(checkpoint);action();void process('inspect');};
+el('frame-apply').onclick=()=>{if(busy||!file)return;const preset=el<HTMLSelectElement>('frame-select').value;if(!isFramePreset(preset)){status('Choose a supported crop format.',true);return;}if(preset===history.current.frame){status('This framing is already applied.');return;}const checkpoint=history.checkpoint();rollback=()=>history.restore(checkpoint);history.setFrame(preset);void process('inspect');};
 function inputTab(link:boolean) {el('file-entry').hidden=link;el('link-entry').hidden=!link;for(const [id,active] of [['link-tab',link],['file-tab',!link]] as const){el(id).classList.toggle('selected',active);el(id).setAttribute('aria-pressed',String(active));}if(link)input('media-url').focus();}
 el('file-tab').onclick=()=>inputTab(false);el('link-tab').onclick=()=>inputTab(true);
 el('link-entry').onsubmit=e=>{e.preventDefault();const result=el('link-result');result.replaceChildren();result.hidden=false;try{const c=classifyMediaLink(input('media-url').value);const heading=document.createElement('h2'),body=document.createElement('p');heading.textContent=c.title;body.textContent=c.message;result.append(heading,body);}catch(error){result.textContent=(error as Error).message;}};

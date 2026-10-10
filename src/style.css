@@ -10,3 +10,12 @@
 .has-file .dropzone>p:not(.format-note){margin:0;text-align:left}
 .has-file .dropzone .primary{flex-shrink:0}
 .skip:not(:focus){clip-path:inset(50%)}
+
+/* Center-framing controls share the Photo workspace, without crowding the preview. */
+.frame-controls{margin-top:18px;border:1px solid var(--line);border-radius:8px;padding:14px 16px;background:#faf9f6}
+.frame-controls>label{margin:0 0 8px;font-weight:600;color:#4c4456}
+.frame-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+.frame-actions select{min-width:0}
+.frame-actions button{min-height:38px}
+.frame-controls .small{margin:8px 0 0}
+@media(max-width:440px){.frame-actions{grid-template-columns:minmax(0,1fr)}.frame-actions button{width:100%}}

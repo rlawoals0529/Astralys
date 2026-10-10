@@ -1,9 +1,45 @@
 import { it,expect } from 'vitest';
 import { classifyMediaLink,YOUTUBE_RESOLVER_ENABLED } from '../src/core/media';
-import { PhotoHistory } from '../src/core/photo';
+import { PhotoHistory, frameBounds, isFramePreset } from '../src/core/photo';
 it.each(['https://youtube.com/watch?v=abc','https://www.youtube.com/watch?v=abc','https://youtu.be/abc'])('recognizes but never enables YouTube %s',url=>{expect(classifyMediaLink(url)).toMatchObject({provider:'youtube',enabled:false});expect(YOUTUBE_RESOLVER_ENABLED).toBe(false);});
 it.each(['http://example.com','file:///etc/passwd','javascript:alert(1)','https://user:password@example.com','https://example.com:8443/','invalid','x'.repeat(2049)])('rejects invalid links %s',url=>expect(()=>classifyMediaLink(url)).toThrow());
 it('does not mistake a lookalike host for YouTube',()=>expect(classifyMediaLink('https://youtube.com.evil.example/watch')).toMatchObject({provider:'unsupported',enabled:false}));
 it('does not treat local classification as permission to fetch',()=>expect(classifyMediaLink('https://127.0.0.1/a.mp4')).toMatchObject({enabled:false}));
-it('restores editing state through undo/reset without altering original',()=>{const h=new PhotoHistory();h.rotate();h.flip();expect(h.current).toEqual({turns:1,flip:true});h.undo();expect(h.current).toEqual({turns:1,flip:false});h.reset();expect(h.current).toEqual({turns:0,flip:false});expect(h.canUndo).toBe(false);});
-it('rolls back a cancelled edit checkpoint and keeps undo history',()=>{const h=new PhotoHistory();h.rotate();const c=h.checkpoint();h.flip();h.restore(c);expect(h.current).toEqual({turns:1,flip:false});h.undo();expect(h.current.turns).toBe(0);});
+it('restores editing state through undo/reset without altering original',()=>{const h=new PhotoHistory();h.rotate();h.flip();expect(h.current).toEqual({turns:1,flip:true,frame:'original'});h.undo();expect(h.current).toEqual({turns:1,flip:false,frame:'original'});h.reset();expect(h.current).toEqual({turns:0,flip:false});expect(h.canUndo).toBe(false);});
+it('rolls back a cancelled edit checkpoint and keeps undo history',()=>{const h=new PhotoHistory();h.rotate();const c=h.checkpoint();h.flip();h.restore(c);expect(h.current).toEqual({turns:1,flip:false,frame:'original'});h.undo();expect(h.current.turns).toBe(0);});
+
+it('centers common aspect ratios without changing the original oriented dimensions',()=>{
+  expect(frameBounds(8,4,'original')).toEqual({x:0,y:0,width:8,height:4});
+  expect(frameBounds(8,4,'square')).toEqual({x:2,y:0,width:4,height:4});
+  expect(frameBounds(8,4,'portrait')).toEqual({x:2,y:0,width:3,height:4});
+  expect(frameBounds(8,4,'classic')).toEqual({x:1,y:0,width:5,height:4});
+  expect(frameBounds(8,4,'wide')).toEqual({x:0,y:0,width:7,height:4});
+  expect(frameBounds(4,8,'square')).toEqual({x:0,y:2,width:4,height:4});
+  expect(frameBounds(1,1,'wide')).toEqual({x:0,y:0,width:1,height:1});
+});
+it('rejects invalid crop formats or geometry instead of trying to draw them',()=>{
+  expect(isFramePreset('wide')).toBe(true);
+  expect(isFramePreset('made-up')).toBe(false);
+  for (const [w,h,frame] of [[0,4,'square'],[-1,3,'wide'],[NaN,4,'original'],[8,4,'invalid']] as const)
+    expect(()=>frameBounds(w,h,frame as 'square')).toThrow('Invalid image framing');
+});
+it('crop presets are undoable with the rest of the photo edits and reset stays non-destructive',()=>{
+  const history=new PhotoHistory();
+  history.setFrame('square');
+  expect(history.current).toEqual({turns:0,flip:false,frame:'square'});
+  const checkpoint=history.checkpoint();
+  history.rotate();
+  history.flip();
+  history.setFrame('portrait');
+  expect(history.current).toEqual({turns:1,flip:true,frame:'portrait'});
+  history.undo();
+  expect(history.current).toEqual({turns:1,flip:true,frame:'square'});
+  history.restore(checkpoint);
+  expect(history.current).toEqual({turns:0,flip:false,frame:'square'});
+  history.setFrame('square');
+  expect(history.canUndo).toBe(true);
+  history.undo();
+  expect(history.canUndo).toBe(false);
+  history.reset();
+  expect(history.current.frame).toBe('original');
+});

@@ -2,7 +2,7 @@
 
 A local-first creative workspace: start with a file, find a useful next action, keep your work on your device.
 
-**Private development milestone · no deployment · browser verification pending.** Astralys is the selected working name, not a cleared trademark. See [naming review](docs/legal/NAMING.md).
+**Private development milestone · no deployment · Chromium + Firefox acceptance verified.** Astralys is the selected working name, not a cleared trademark. See [naming review](docs/legal/NAMING.md).
 
 ## Implemented
 
@@ -14,7 +14,7 @@ A local-first creative workspace: start with a file, find a useful next action, 
 - Local-only Media Link classification. YouTube and all remote fetching remain gated.
 - Keyboard-operable controls, focus styles, status announcements and reduced-motion styling.
 
-The real browser pipeline is implemented, but end-to-end behavior and visual accessibility have **not** been verified in this execution environment: browser processes encounter OS socket restrictions. Do not treat the implementation list as browser acceptance-test passes. The first milestone remains pre-release until Chromium and Firefox tests run successfully.
+The production browser pipeline has passed hosted Chromium and Firefox tests, including real downloads, dimensions, metadata removal, cancellation/recovery, keyboard focus and CSP enforcement. The isolated PhotoCraft WASM spike also passed both browsers. See the [verification report](docs/reports/MILESTONE_1.md) for exact revisions, commands and remaining manual accessibility/real-world coverage. This remains a private pre-release milestone.
 
 ## Run locally
 
@@ -53,4 +53,4 @@ Original code is MIT. Upstream names, marks, assets and dependencies retain thei
 
 ## Next milestone
 
-Run the browser/visual acceptance gates in a socket-capable environment and verify private GitHub CI. Then choose one PDF workflow and expand the Photo spike to a bounded pixel-buffer/worker interface with measured memory and license inventory. Keep remote media gated until separate legal/product and SSRF reviews pass.
+Complete assistive-technology and broader real-world image validation. Then choose one PDF workflow and expand the Photo spike to a bounded pixel-buffer/worker interface with measured memory and license inventory. Keep remote media gated until separate legal/product and SSRF reviews pass.

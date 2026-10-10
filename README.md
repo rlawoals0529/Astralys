@@ -49,7 +49,7 @@ TypeScript/Vite native DOM UI → typed action/file logic → disposable image w
 - [Upstream audit](docs/legal/UPSTREAM_AUDIT.md), [license matrix](docs/legal/THIRD_PARTY_LICENSES.md)
 - [Media policy](docs/legal/MEDIA_POLICY.md), [third-party notices](THIRD_PARTY_NOTICES.md)
 - [Baseline verification](docs/reports/MILESTONE_1.md), [image-to-PDF extension](docs/reports/IMAGE_PDF.md), [RGBA tile spike](docs/reports/PHOTO_RGBA.md), [multi-tile verification](docs/reports/PHOTO_MULTITILE.md), [production Photo framing](docs/reports/PHOTO_FRAMING.md)
-- [PhotoCraft and REA research/reference boundary](docs/development/REFERENCE_TOOLS.md) — REA is an opt-in developer tool, not bundled
+- [PhotoCraft and REA research/reference boundary](docs/development/REFERENCE_TOOLS.md) — optional, guarded REA static inspection of local `dist` after explicit opt-in; not bundled
 - [Resume prompt for a new ChatGPT chat](docs/RESUME_PROMPT.md)
 
 Original code is MIT. Upstream names, marks, assets and dependencies retain their own rights. Stock ffmpeg.wasm core is GPL-licensed; it is not bundled. License review and automated tests do not establish legal approval or security certification.

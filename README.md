@@ -34,6 +34,17 @@ npm run test:browser
 
 `npm run preview` serves the built output at `http://127.0.0.1:4173` with strict security headers. It is a local verification server, not a deployed production backend. `public/_headers` records equivalent static-host headers.
 
+### Optional REA static inspection (developer-only)
+
+REA is **not** part of the production app and is not automatically installed. After reviewing the [external tool and license notes](docs/development/REFERENCE_TOOLS.md), a developer may separately install a trusted, pinned REA CLI (e.g. `npm install --global rea-agents@6.3.0`) and explicitly inspect Astralys's own compiled JavaScript:
+
+```sh
+npm run build
+npm run dev:rea -- --accept-static-analysis
+```
+
+The command checks the local `dist` directory before invoking REA's static analyzer, and prints potentially sensitive evidence to the terminal. The repository's tests use a mock REA executable; no real REA installation or scanning is performed in CI.
+
 ## Limits
 
 Still PNG/JPEG/WebP only, 20 MiB input, 16 million pixels, 8192 pixels per side, 4096 chunks/segments, one active job and a 30-second deadline. Output limit 64 MiB. A browser without OffscreenCanvas/createImageBitmap gets an explicit error. PNG is lossless but can increase file size; JPEG flattens transparency to white. Re-encoding can change color, orientation or details. No files survive reload; explicit downloads remain on the user's device.
@@ -50,10 +61,11 @@ TypeScript/Vite native DOM UI → typed action/file logic → disposable image w
 - [Media policy](docs/legal/MEDIA_POLICY.md), [third-party notices](THIRD_PARTY_NOTICES.md)
 - [Baseline verification](docs/reports/MILESTONE_1.md), [image-to-PDF extension](docs/reports/IMAGE_PDF.md), [RGBA tile spike](docs/reports/PHOTO_RGBA.md), [multi-tile verification](docs/reports/PHOTO_MULTITILE.md), [production Photo framing](docs/reports/PHOTO_FRAMING.md)
 - [PhotoCraft and REA research/reference boundary](docs/development/REFERENCE_TOOLS.md) — optional, guarded REA static inspection of local `dist` after explicit opt-in; not bundled
+- [Verified crop repositioning and REA developer bridge](docs/reports/PHOTO_REPOSITION_REA.md)
 - [Resume prompt for a new ChatGPT chat](docs/RESUME_PROMPT.md)
 
 Original code is MIT. Upstream names, marks, assets and dependencies retain their own rights. Stock ffmpeg.wasm core is GPL-licensed; it is not bundled. License review and automated tests do not establish legal approval or security certification.
 
 ## Next milestone
 
-With centered cropping verified in production, the next useful Photo milestone is repositionable crop framing or a before/after comparison, together with real-world image fixtures, assistive-technology review and memory/performance measurements. The PhotoCraft multi-tile WASM worker remains an isolated experiment pending color/alpha, licensing and security review. No backend or remote-media release is approved; keep provider access gated until separate legal/product and SSRF reviews pass.
+With user-repositionable crop framing merged and tested, prioritize a before/after Photo preview and representative real-world image/accessibility/performance checks. The PhotoCraft multi-tile WASM worker remains isolated pending color, licensing and security review. The opt-in REA command is for developer builds only; it does not ship or install a runtime. No backend or remote-media release is approved; keep provider access gated until separate legal/product and SSRF reviews pass.

@@ -48,11 +48,11 @@ TypeScript/Vite native DOM UI → typed action/file logic → disposable image w
 - [Threat model and backend gates](docs/security/THREAT_MODEL.md)
 - [Upstream audit](docs/legal/UPSTREAM_AUDIT.md), [license matrix](docs/legal/THIRD_PARTY_LICENSES.md)
 - [Media policy](docs/legal/MEDIA_POLICY.md), [third-party notices](THIRD_PARTY_NOTICES.md)
-- [Baseline verification](docs/reports/MILESTONE_1.md), [image-to-PDF extension](docs/reports/IMAGE_PDF.md), [RGBA tile spike](docs/reports/PHOTO_RGBA.md), [multi-tile verification](docs/reports/PHOTO_MULTITILE.md)
+- [Baseline verification](docs/reports/MILESTONE_1.md), [image-to-PDF extension](docs/reports/IMAGE_PDF.md), [RGBA tile spike](docs/reports/PHOTO_RGBA.md), [multi-tile verification](docs/reports/PHOTO_MULTITILE.md), [production Photo framing](docs/reports/PHOTO_FRAMING.md)
 - [Resume prompt for a new ChatGPT chat](docs/RESUME_PROMPT.md)
 
 Original code is MIT. Upstream names, marks, assets and dependencies retain their own rights. Stock ffmpeg.wasm core is GPL-licensed; it is not bundled. License review and automated tests do not establish legal approval or security certification.
 
 ## Next milestone
 
-Complete assistive-technology and broader real-world image validation. The isolated PhotoCraft multi-tile worker is verified with measured WASM linear memory and cancellation/restart. Before production integration, profile whole-process memory, decide on layers and ICC/color semantics, and test larger real-world images. No backend or remote-media release is approved. Keep remote media gated until separate legal/product and SSRF reviews pass.
+With centered cropping verified in production, the next useful Photo milestone is repositionable crop framing or a before/after comparison, together with real-world image fixtures, assistive-technology review and memory/performance measurements. The PhotoCraft multi-tile WASM worker remains an isolated experiment pending color/alpha, licensing and security review. No backend or remote-media release is approved; keep provider access gated until separate legal/product and SSRF reviews pass.

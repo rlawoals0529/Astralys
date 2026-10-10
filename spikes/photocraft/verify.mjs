@@ -32,5 +32,13 @@ tile.set([255,0,0,255],PLANE-4);
 tile.set([0,0,255,255],PLANE*2-4);
 assert.equal(tileBlend(0,64,64,.5),0);
 assert.deepEqual(Array.from(tile.subarray(PLANE*3-4,PLANE*3)),[128,0,0,255]);
+const linearBeforeRepeatedTiles=memory.buffer.byteLength;
+for(let i=0;i<256;i++){
+  assert.equal(tileBlend(i%2,64,64,(i%3)/2),0);
+}
+const linearAfterRepeatedTiles=memory.buffer.byteLength;
+assert.equal(linearAfterRepeatedTiles,linearBeforeRepeatedTiles);
+assert.ok(linearAfterRepeatedTiles<=4*1024*1024);
+console.log(JSON.stringify({wasmBinaryBytes:bytes.byteLength,wasmLinearInitialBytes:linearBeforeRepeatedTiles,wasmLinearFinalBytes:linearAfterRepeatedTiles,repeatedTiles:256,arenaBytes:PLANE*3}));
 assert.equal(WebAssembly.Module.imports(module).length,0);
 console.log('WASM scalar + RGBA tile assertions passed; '+bytes.length+' bytes; 0 imports');

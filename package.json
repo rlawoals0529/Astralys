@@ -12,7 +12,7 @@
     "build": "vite build",
     "preview": "node scripts/serve.mjs",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src tests e2e spikes/photocraft/browser.spec.ts playwright.config.ts playwright.spike.config.ts",
+    "lint": "eslint src tests e2e spikes/photocraft/browser.spec.ts spikes/photocraft/composite.spec.ts playwright.config.ts playwright.spike.config.ts",
     "test": "vitest run",
     "test:browser": "playwright test",
     "audit": "npm audit --audit-level=moderate",

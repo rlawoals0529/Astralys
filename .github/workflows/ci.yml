@@ -49,6 +49,7 @@ jobs:
         with:
           node-version: '24.19.0'
       - run: npm ci --ignore-scripts
+      - run: node --check spikes/photocraft/composite.worker.js
       - run: node spikes/photocraft/verify.mjs
       - run: npx playwright install --with-deps chromium firefox
       - run: npx playwright test -c playwright.spike.config.ts

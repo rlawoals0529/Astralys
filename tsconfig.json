@@ -26,6 +26,7 @@
     "vite.config.ts",
     "playwright.config.ts",
     "playwright.spike.config.ts",
-    "spikes/photocraft/browser.spec.ts"
+    "spikes/photocraft/browser.spec.ts",
+    "spikes/photocraft/composite.spec.ts"
   ]
 }

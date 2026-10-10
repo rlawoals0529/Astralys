@@ -116,6 +116,84 @@ test('center framing updates preview, exports only selected pixels, and keeps hi
  await expect(page.locator('#height')).toHaveValue('4');
 });
 
+test('crop preview drag and keyboard sliders reposition real exported pixels',async({page})=>{
+ const bytes=await page.evaluate(async()=>{
+  const c=document.createElement('canvas');c.width=8;c.height=4;const ctx=c.getContext('2d')!;
+  for(const [x,w,color] of [[0,2,'#ff0000'],[2,4,'#00ff00'],[6,2,'#0000ff']] as const){
+   ctx.fillStyle=color;ctx.fillRect(x,0,w,4);
+  }
+  const blob=await new Promise<Blob>((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(new Error('fixture encoding failed')),'image/png'));
+  return Array.from(new Uint8Array(await blob.arrayBuffer()));
+ });
+ await load(page,'bands.png','image/png',Buffer.from(bytes));
+ await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
+ await page.locator('#frame-select').selectOption('square');
+ await page.getByRole('button',{name:'Apply crop'}).click();
+ await expect(page.locator('#crop-position')).toBeVisible();
+ await expect(page.locator('#crop-x')).toHaveValue('50');
+ await expect(page.locator('#crop-y')).toBeDisabled();
+ const img=page.locator('#preview');
+ const original=await img.getAttribute('src');
+ const box=await img.boundingBox();expect(box).toBeTruthy();
+ const x=box!.x+box!.width/2,y=box!.y+box!.height/2;
+ await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+box!.width*0.6,y,{steps:4});await page.mouse.up();
+ await expect(page.locator('#crop-x')).toHaveValue('0');
+ await expect(img).not.toHaveAttribute('src',original!);
+ await expect(page.locator('#cancel')).toBeHidden();
+ await page.locator('#format').selectOption('image/png');
+ await page.getByRole('button',{name:'Create image'}).click();
+ const firstDownload=page.waitForEvent('download');await page.getByRole('link',{name:'Download image'}).click();
+ const first=await firstDownload;const a=await readFile((await first.path())!);
+ expect(inspect(a)).toMatchObject({width:4,height:4,metadata:[]});
+ const sample=async(buffer:Buffer)=>{
+  return page.evaluate(async pixels=>{
+   const bitmap=await createImageBitmap(new Blob([new Uint8Array(pixels)],{type:'image/png'}));
+   const c=document.createElement('canvas');c.width=bitmap.width;c.height=bitmap.height;
+   const ctx=c.getContext('2d')!;ctx.drawImage(bitmap,0,0);bitmap.close();
+   const first=Array.from(ctx.getImageData(0,0,1,1).data);
+   const last=Array.from(ctx.getImageData(c.width-1,0,1,1).data);
+   return {first,last};
+  },Array.from(buffer));
+ };
+ expect((await sample(a)).first).toEqual([255,0,0,255]);
+ await page.getByRole('button',{name:'Undo',exact:true}).click();
+ await expect(page.locator('#crop-x')).toHaveValue('50');
+ await page.locator('#crop-x').focus();
+ await page.keyboard.press('End');
+ await expect(page.locator('#crop-x')).toHaveValue('100');
+ await expect(page.locator('#cancel')).toBeHidden();
+ await page.getByRole('button',{name:'Create image'}).click();
+ const secondDownload=page.waitForEvent('download');await page.getByRole('link',{name:'Download image'}).click();
+ const second=await secondDownload;
+ expect((await sample(await readFile((await second.path())!))).last).toEqual([0,0,255,255]);
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('cancelled crop reposition restores original placement and allows recovery',async({page})=>{
+ await load(page);await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
+ await page.locator('#frame-select').selectOption('square');
+ await page.getByRole('button',{name:'Apply crop'}).click();
+ const original=await page.locator('#preview').getAttribute('src');
+ await page.route('**/assets/image.worker-*.js',route=>route.fulfill({contentType:'text/javascript',body:'self.onmessage=()=>{}'}));
+ await page.locator('#crop-x').evaluate(node=>{
+  const slider=node as HTMLInputElement;
+  slider.value='0';slider.dispatchEvent(new Event('change',{bubbles:true}));
+ });
+ await expect(page.locator('#cancel')).toBeVisible();
+ await page.getByRole('button',{name:'Cancel',exact:true}).click();
+ await expect(page.locator('#crop-x')).toHaveValue('50');
+ await expect(page.locator('#preview')).toHaveAttribute('src',original!);
+ await expect(page.locator('#width')).toHaveValue('4');
+ await expect(page.locator('#download')).toBeHidden();
+ await page.unroute('**/assets/image.worker-*.js');
+ await page.locator('#crop-x').focus();await page.keyboard.press('Home');
+ await expect(page.locator('#crop-x')).toHaveValue('0');
+ await expect(page.locator('#cancel')).toBeHidden();
+ await page.getByRole('button',{name:'Reset original'}).click();
+ await expect(page.locator('#crop-position')).toBeHidden();
+ await expect(page.locator('#width')).toHaveValue('8');
+});
 test('cancelling crop reverts its preset and preserves the original preview',async({page})=>{
  await load(page);await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
  const before=await page.locator('#preview').getAttribute('src');

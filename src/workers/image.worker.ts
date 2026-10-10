@@ -14,7 +14,7 @@ self.onmessage=async (event: MessageEvent<ImageJob>)=> {
     checkSize(job.file.size);
     if(!['image/png','image/jpeg','image/webp'].includes(job.mime)) throw new Error('Unsupported output format.');
     if(!Number.isFinite(job.quality) || job.quality < 0.1 || job.quality > 1) throw new Error('Quality must be between 10 and 100.');
-    if(!Number.isInteger(job.photo.turns) || job.photo.turns<0 || job.photo.turns>3 || typeof job.photo.flip!=='boolean' || !isFramePreset(job.photo.frame)) throw new Error('Invalid photo operation.');
+    if(!Number.isInteger(job.photo.turns) || job.photo.turns<0 || job.photo.turns>3 || typeof job.photo.flip!=='boolean' || !isFramePreset(job.photo.frame) || !Number.isInteger(job.photo.cropX) || job.photo.cropX < 0 || job.photo.cropX > 100 || !Number.isInteger(job.photo.cropY) || job.photo.cropY < 0 || job.photo.cropY > 100) throw new Error('Invalid photo operation.');
     stage('Checking file structure…');
     const bytes=new Uint8Array(await job.file.arrayBuffer());
     const info=inspect(bytes,job.file.name,job.file.type);
@@ -24,7 +24,7 @@ self.onmessage=async (event: MessageEvent<ImageJob>)=> {
     checkDimensions(bitmap.width,bitmap.height);
     const rotated=job.photo.turns%2===1;
     const orientedW=rotated?bitmap.height:bitmap.width, orientedH=rotated?bitmap.width:bitmap.height;
-    const frame=frameBounds(orientedW,orientedH,job.photo.frame);
+    const frame=frameBounds(orientedW,orientedH,job.photo.frame,job.photo.cropX,job.photo.cropY);
     const naturalW=frame.width, naturalH=frame.height;
     const previewScale=Math.min(1,1200/Math.max(naturalW,naturalH));
     const width=job.mode==='inspect'?Math.max(1,Math.round(naturalW*previewScale)):(job.width ?? naturalW);

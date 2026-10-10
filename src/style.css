@@ -19,3 +19,6 @@
 .frame-actions button{min-height:38px}
 .frame-controls .small{margin:8px 0 0}
 @media(max-width:440px){.frame-actions{grid-template-columns:minmax(0,1fr)}.frame-actions button{width:100%}}
+
+/* Make even tiny synthetic images large enough to reposition with a pointer. */
+.preview-stage img.crop-can-drag{min-width:min(180px,100%);height:auto}

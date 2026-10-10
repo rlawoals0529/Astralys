@@ -174,6 +174,9 @@ test('cancelled crop reposition restores original placement and allows recovery'
  await load(page);await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
  await page.locator('#frame-select').selectOption('square');
  await page.getByRole('button',{name:'Apply crop'}).click();
+ await expect(page.locator('#width')).toHaveValue('4');
+ await expect(page.locator('#crop-position')).toBeVisible();
+ await expect(page.locator('#cancel')).toBeHidden();
  const original=await page.locator('#preview').getAttribute('src');
  await page.route('**/assets/image.worker-*.js',route=>route.fulfill({contentType:'text/javascript',body:'self.onmessage=()=>{}'}));
  await page.locator('#crop-x').evaluate(node=>{

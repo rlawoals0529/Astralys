@@ -13,14 +13,14 @@ No production/development package was added; lockfiles are unchanged. No third-p
 - `npm run check`: PASS: typecheck, lint, **57 tests / 4 files**, build, npm audit (0 findings), license allowlist (158 locked / 134 installed).
 - Independent verifier: Poppler `pdfinfo` 26.05.0 accepted a synthetic 8×4 RGB image output as one PDF 1.4 page, 6×3 pt, no metadata stream, JavaScript, forms or encryption.
 - `pdftoppm -png -singlefile -scale-to 80`: PASS, 80×40 raster; center pixel (210,60,121), within 1 channel level of source (210,60,120). This is a generated synthetic fixture, not user data. Verifier tools and generated files are not shipped.
-- Browser suite: 30 cases across Chromium and Firefox, including PDF download MIME/header, geometry, sanitized filename, embedded JPEG metadata, repeated PDF export and preview preservation. Initial run 38025449877: PDF export passed in both browsers; 28/30 cases passed, with two Firefox beforeEach navigation timeouts. Traces show HTTP 200 for the document/assets and a rendered app. Full-suite verification remains pending after the targeted startup recovery below.
+- Browser suite: 30 cases across Chromium and Firefox, including PDF download MIME/header, geometry, sanitized filename, embedded JPEG metadata, repeated PDF export and preview preservation. Initial run 38025449877: PDF export passed in both browsers; 28/30 cases passed, with two Firefox beforeEach navigation timeouts. Traces show HTTP 200 for the document/assets and a rendered app. Follow-up full-suite CI run 38025686922 on commit 463f343 passed both jobs, including 30/30 Chromium/Firefox app cases. The targeted Firefox navigation recovery was accepted only for the documented fully loaded/no-error signature, not for assertion retries.
 - Unit checks include xref byte offsets, 20-byte entries, binary stream length, deterministic output, input immutability, malformed JPEG, unsupported components/precision, dimension and output-size bounds.
 
 ## Limits and next step
 
 This does not provide a general PDF parser, merge/split, text extraction, signatures, forms or accessible/tagged document creation. JPEG is lossy and browser color behavior may vary. Local decode still depends on browser codec safety. No new remote access or persistence exists.
 
-Finish hosted verification, then expand the isolated PhotoCraft bridge to bounded pixel buffers and meaningful native/WASM parity. The reusable [resume prompt](../RESUME_PROMPT.md) describes current constraints and how a new chat should verify state before acting.
+Hosted verification is complete. The isolated PhotoCraft RGBA tile bridge was subsequently verified through PR #6 (CI 38026518126); it remains outside production. See PHOTO_RGBA.md. Manual accessibility and broader real-world memory testing remain open. The reusable [resume prompt](../RESUME_PROMPT.md) describes current constraints and how a new chat should verify state before acting.
 
 ## Browser harness finding
 

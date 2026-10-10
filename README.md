@@ -15,7 +15,7 @@ A local-first creative workspace: start with a file, find a useful next action, 
 - Local-only Media Link classification. YouTube and all remote fetching remain gated.
 - Keyboard-operable controls, focus styles, status announcements and reduced-motion styling.
 
-The production browser pipeline has passed hosted Chromium and Firefox tests, including real downloads, dimensions, metadata removal, cancellation/recovery, keyboard focus and CSP enforcement. The isolated PhotoCraft WASM spike also passed both browsers. See the [verification report](docs/reports/MILESTONE_1.md) for exact revisions, commands and remaining manual accessibility/real-world coverage. This remains a private pre-release milestone.
+The production browser pipeline has passed hosted Chromium and Firefox tests, including real downloads, dimensions, metadata removal, cancellation/recovery, keyboard focus and CSP enforcement. The isolated PhotoCraft WASM spike and the bounded RGBA tile extension also passed both browsers. See the [verification report](docs/reports/MILESTONE_1.md) for exact revisions, commands and remaining manual accessibility/real-world coverage. This remains a private pre-release milestone.
 
 ## Run locally
 
@@ -42,17 +42,17 @@ No SVG rendering, existing-PDF modification, archives, audio/video conversion, r
 
 ## Architecture and compliance
 
-TypeScript/Vite native DOM UI → typed action/file logic → disposable image worker → Blob download. Browser app has no production npm dependencies. PhotoCraft is **not** the runtime Photo editor: an isolated Rust/WASM spike consumes its pinned color crate and exposes a bounded blend operation. See [spike](spikes/photocraft/README.md).
+TypeScript/Vite native DOM UI → typed action/file logic → disposable image worker → Blob download. Browser app has no production npm dependencies. PhotoCraft is **not** the runtime Photo editor: an isolated Rust/WASM spike uses its pinned color crate for scalar and fixed-size RGBA tile blending. See [spike](spikes/photocraft/README.md).
 
 - [Architecture](docs/architecture/DECISIONS.md)
 - [Threat model and backend gates](docs/security/THREAT_MODEL.md)
 - [Upstream audit](docs/legal/UPSTREAM_AUDIT.md), [license matrix](docs/legal/THIRD_PARTY_LICENSES.md)
 - [Media policy](docs/legal/MEDIA_POLICY.md), [third-party notices](THIRD_PARTY_NOTICES.md)
-- [Baseline verification](docs/reports/MILESTONE_1.md), [image-to-PDF extension](docs/reports/IMAGE_PDF.md)
+- [Baseline verification](docs/reports/MILESTONE_1.md), [image-to-PDF extension](docs/reports/IMAGE_PDF.md), [RGBA tile spike](docs/reports/PHOTO_RGBA.md)
 - [Resume prompt for a new ChatGPT chat](docs/RESUME_PROMPT.md)
 
 Original code is MIT. Upstream names, marks, assets and dependencies retain their own rights. Stock ffmpeg.wasm core is GPL-licensed; it is not bundled. License review and automated tests do not establish legal approval or security certification.
 
 ## Next milestone
 
-Complete assistive-technology and broader real-world image validation. Expand the Photo spike to a bounded pixel-buffer/worker interface with measured memory and license inventory. Keep remote media gated until separate legal/product and SSRF reviews pass.
+Complete assistive-technology and broader real-world image validation. The isolated RGBA tile bridge is verified; next measure runtime memory, repeated-tile cancellation and layer behavior before considering production integration. Keep remote media gated until separate legal/product and SSRF reviews pass.

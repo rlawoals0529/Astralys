@@ -63,6 +63,7 @@ TypeScript/Vite native DOM UI → typed action/file logic → disposable image w
 - [PhotoCraft and REA research/reference boundary](docs/development/REFERENCE_TOOLS.md) — optional, guarded REA static inspection of local `dist` after explicit opt-in; not bundled
 - [Verified crop repositioning and REA developer bridge](docs/reports/PHOTO_REPOSITION_REA.md)
 - [Prioritized product roadmap](docs/product/ROADMAP.md)
+- [Before/after Photo comparison verification](docs/reports/PHOTO_COMPARE.md)
 - [Resume prompt for a new ChatGPT chat](docs/RESUME_PROMPT.md)
 
 Original code is MIT. Upstream names, marks, assets and dependencies retain their own rights. Stock ffmpeg.wasm core is GPL-licensed; it is not bundled. License review and automated tests do not establish legal approval or security certification.

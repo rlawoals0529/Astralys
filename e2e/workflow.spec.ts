@@ -116,6 +116,96 @@ test('center framing updates preview, exports only selected pixels, and keeps hi
  await expect(page.locator('#height')).toHaveValue('4');
 });
 
+test('before/after comparison retains the original preview across edits and PDF export',async({page})=>{
+ await load(page);
+ await expect(page.locator('#comparison-original')).toBeHidden();
+ await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
+ const button=page.getByRole('button',{name:'Compare original'});
+ await expect(button).toBeEnabled();
+ const afterBefore=await page.locator('#preview').getAttribute('src');
+ await button.focus();await page.keyboard.press('Enter');
+ await expect(page.locator('#compare')).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('#comparison-original')).toBeVisible();
+ await expect(page.locator('#preview-stage')).toHaveAttribute('aria-label','Original and edited image comparison');
+ await expect(page.locator('#preview-label')).toHaveText('AFTER · EDITED');
+ const originalImage=page.locator('#original-preview');
+ const originalSrc=await originalImage.getAttribute('src');
+ expect(originalSrc).toMatch(/^blob:/);
+ await expect(originalImage).toHaveJSProperty('naturalWidth',8);
+ await expect(originalImage).toHaveJSProperty('naturalHeight',4);
+ await page.getByRole('button',{name:'Rotate 90°'}).click();
+ await expect(page.locator('#width')).toHaveValue('4');
+ await expect(page.locator('#height')).toHaveValue('8');
+ await expect(page.locator('#cancel')).toBeHidden();
+ await expect(originalImage).toHaveAttribute('src',originalSrc!);
+ await expect(originalImage).toHaveJSProperty('naturalWidth',8);
+ await expect(page.locator('#preview')).not.toHaveAttribute('src',afterBefore!);
+ await expect(page.locator('#preview')).toHaveJSProperty('naturalWidth',4);
+ await page.locator('#frame-select').selectOption('square');
+ await page.getByRole('button',{name:'Apply crop'}).click();
+ await expect(page.locator('#width')).toHaveValue('4');
+ await expect(page.locator('#height')).toHaveValue('4');
+ await expect(originalImage).toHaveAttribute('src',originalSrc!);
+ await page.getByRole('button',{name:'Create PDF',exact:true}).click();
+ await expect(page.locator('#download')).toBeVisible();
+ await expect(originalImage).toHaveAttribute('src',originalSrc!);
+ const pending=page.waitForEvent('download');
+ await page.getByRole('link',{name:'Download PDF'}).click();
+ const download=await pending;
+ const pdf=await readFile((await download.path())!);
+ expect(pdf.toString('latin1')).toContain('/MediaBox [0 0 3 3]');
+ await page.getByRole('button',{name:'Close comparison'}).click();
+ await expect(page.locator('#comparison-original')).toBeHidden();
+ await expect(page.locator('#compare')).toHaveAttribute('aria-pressed','false');
+ await expect(page.locator('#preview-stage')).toHaveAttribute('aria-label','Edited image preview');
+ await expect(page.locator('#preview')).toHaveAttribute('src',/^blob:/);
+});
+
+test('comparison is local-only, mobile friendly and clears both preview URLs on new files',async({page})=>{
+ const remote:string[]=[];
+ page.on('request',request=>{if(!request.url().startsWith('http://127.0.0.1:4173/')&&!request.url().startsWith('blob:')) remote.push(request.url());});
+ await load(page,'first.png');
+ await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
+ await page.getByRole('button',{name:'Compare original'}).click();
+ const previous=await page.locator('#original-preview').getAttribute('src');
+ await page.setViewportSize({width:390,height:844});
+ await expect(page.locator('#comparison-original')).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await load(page,'second.png');
+ await expect(page.locator('#comparison-original')).toBeHidden();
+ await expect(page.locator('#compare')).toHaveAttribute('aria-pressed','false');
+ await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
+ await page.getByRole('button',{name:'Compare original'}).click();
+ const second=await page.locator('#original-preview').getAttribute('src');
+ expect(second).toMatch(/^blob:/);
+ expect(second).not.toBe(previous);
+ await page.getByRole('button',{name:'Clear file'}).click();
+ await expect(page.locator('#original-preview')).not.toHaveAttribute('src',/blob:/);
+ await expect(page.locator('#preview')).not.toHaveAttribute('src',/blob:/);
+ await expect(page.locator('#comparison-original')).toBeHidden();
+ expect(remote).toEqual([]);
+});
+
+test('cancelled edits retain the comparison and original preview',async({page})=>{
+ await load(page);await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
+ await page.getByRole('button',{name:'Compare original'}).click();
+ const before=await page.locator('#original-preview').getAttribute('src');
+ const after=await page.locator('#preview').getAttribute('src');
+ await page.route('**/assets/image.worker-*.js',route=>route.fulfill({contentType:'text/javascript',body:'self.onmessage=()=>{}'}));
+ await page.getByRole('button',{name:'Rotate 90°'}).click();
+ await expect(page.locator('#cancel')).toBeVisible();
+ await page.getByRole('button',{name:'Cancel',exact:true}).click();
+ await expect(page.locator('#compare')).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('#comparison-original')).toBeVisible();
+ await expect(page.locator('#original-preview')).toHaveAttribute('src',before!);
+ await expect(page.locator('#preview')).toHaveAttribute('src',after!);
+ await expect(page.locator('#width')).toHaveValue('8');
+ await expect(page.locator('#height')).toHaveValue('4');
+ await page.unroute('**/assets/image.worker-*.js');
+ await page.getByRole('button',{name:'Rotate 90°'}).click();
+ await expect(page.locator('#width')).toHaveValue('4');
+ await expect(page.locator('#cancel')).toBeHidden();
+});
 test('crop preview drag and keyboard sliders reposition real exported pixels',async({page})=>{
  const bytes=await page.evaluate(async()=>{
   const c=document.createElement('canvas');c.width=8;c.height=4;const ctx=c.getContext('2d')!;

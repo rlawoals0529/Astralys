@@ -65,3 +65,9 @@
 /* Even tiny source images need a usable pointer target for opaque area selection. */
 .preview-stage img.redact-armed{min-width:min(180px,100%);height:auto}
 .preview-stage.compare-mode>img#preview.redact-armed{width:min(180px,100%);min-width:min(180px,100%);height:auto}
+
+/* Export sizing: clear keyboard-focus and short explanatory feedback. */
+#export-form #size-preset{width:100%;max-width:100%;min-height:38px;margin:4px 0 6px}
+#size-preset-help{margin:0 0 15px;line-height:1.6;color:#575b63}
+.batch-fields>div{min-width:min(165px,100%);flex:1}
+@media(max-width:650px){#export-form #size-preset{min-width:0}.batch-fields>div{min-width:0}}

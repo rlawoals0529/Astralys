@@ -3,6 +3,8 @@ import { checkDimensions, checkSize, safeName, suggestedActions } from './core/f
 import type { ImageInfo, ImageMime } from './core/files';
 import { JobRunner, ObjectUrlSlot } from './core/jobs';
 import { classifyMediaLink } from './core/media';
+import { isExportPreset, isLongEdge, presetSize } from './core/export-presets';
+import type { LongEdge } from './core/export-presets';
 import { PhotoHistory, blankPhotoState, frameBounds, isFramePreset, validRedaction } from './core/photo';
 import type { RedactionRect, ToneAxis } from './core/photo';
 import type { ImageJob, ImageResult } from './workers/image.worker';
@@ -11,7 +13,7 @@ const workerFactory=()=>new Worker(new URL('./workers/image.worker.ts',import.me
 const runner=new JobRunner(workerFactory),batchRunner=new JobRunner(workerFactory);
 const previewUrl=new ObjectUrlSlot(), originalPreviewUrl=new ObjectUrlSlot(), outputUrl=new ObjectUrlSlot(), history=new PhotoHistory();
 let rollback: (()=>void) | undefined;
-let file: File | undefined, info: ImageInfo | undefined, requestId=0, busy=false, photoOpen=false, compareMode=false, ratio=1;
+let file: File | undefined, info: ImageInfo | undefined, requestId=0, busy=false, photoOpen=false, compareMode=false, ratio=1, naturalWidth=0, naturalHeight=0;
 let cropDrag: {pointerId:number; x:number; y:number; width:number; height:number; cropX:number; cropY:number} | undefined;
 let redactArmed=false,redactDrag:{pointerId:number;x:number;y:number}|undefined;
 let batchFiles:File[]=[],batchBusy=false,batchSerial=0;
@@ -19,6 +21,20 @@ let batchStoredBytes=0;
 const batchUrls:ObjectUrlSlot[]=[];
 const status=(message:string,error=false)=> {el('status').textContent=message;el('status-row').classList.toggle('error',error);};
 const input=(id:string)=>el<HTMLInputElement>(id);
+function syncSizePreset() {
+  const value=el<HTMLSelectElement>('size-preset').value;
+  const help=el('size-preset-help');
+  if(!naturalWidth||!naturalHeight){help.textContent='Presets preserve aspect ratio and never upscale. Choose an image to begin.';return;}
+  if(value==='custom') {
+    help.textContent='Custom dimensions. Editing the source crop or orientation resets manual dimensions; export validates pixel limits.';
+    return;
+  }
+  if(!isExportPreset(value)){help.textContent='Unsupported size preset.';return;}
+  const size=presetSize(naturalWidth,naturalHeight,value);
+  input('width').value=String(size.width);input('height').value=String(size.height);
+  input('aspect').checked=true;
+  help.textContent='Output '+size.width+' × '+size.height+' px. '+(size.width===naturalWidth&&size.height===naturalHeight?'No upscaling; source is already within the limit.':'Fits inside the chosen longest-edge limit, without cropping or upscaling.');
+}
 function syncComparison() {
   const ready=Boolean(file&&info&&originalPreviewUrl.value&&previewUrl.value);
   const active=ready&&photoOpen&&compareMode;
@@ -105,7 +121,7 @@ async function process(mode:'inspect'|'export'|'pdf') {
       }
     }
     if(mode==='inspect') {
-      input('width').value=String(result.width);input('height').value=String(result.height);ratio=result.width/result.height;
+      input('width').value=String(result.width);input('height').value=String(result.height);ratio=result.width/result.height;naturalWidth=result.width;naturalHeight=result.height;syncSizePreset();
       rollback=undefined;renderFile();status('Image ready. Choose an action or adjust your export.');
     } else {
       const link=el<HTMLAnchorElement>('download');link.href=outputUrl.set(result.blob);link.download=safeName(file!.name,result.blob.type as ImageMime|'application/pdf');
@@ -140,7 +156,7 @@ async function chooseFile(next: File) {
   status('Opening image…');await process('inspect');
 }
 function clearSession(announce=true) {
-  document.body.classList.remove('has-file');++requestId;runner.cancel();cropDrag=undefined;redactDrag=undefined;redactArmed=false;el('redact-outline').hidden=true;rollback=undefined;setBusy(false);file=undefined;info=undefined;compareMode=false;history.reset();el<HTMLSelectElement>('frame-select').value='original';previewUrl.clear();originalPreviewUrl.clear();clearOutput();el<HTMLImageElement>('preview').removeAttribute('src');el<HTMLImageElement>('original-preview').removeAttribute('src');el('workspace').hidden=true;el('principles').hidden=false;input('file-input').value='';syncCropControls();syncComparison();syncPhotoControls();if(announce)status('File cleared. Choose another image.');
+  document.body.classList.remove('has-file');++requestId;runner.cancel();cropDrag=undefined;redactDrag=undefined;redactArmed=false;el('redact-outline').hidden=true;rollback=undefined;setBusy(false);file=undefined;info=undefined;compareMode=false;naturalWidth=0;naturalHeight=0;history.reset();el<HTMLSelectElement>('size-preset').value='original';syncSizePreset();el<HTMLSelectElement>('frame-select').value='original';previewUrl.clear();originalPreviewUrl.clear();clearOutput();el<HTMLImageElement>('preview').removeAttribute('src');el<HTMLImageElement>('original-preview').removeAttribute('src');el('workspace').hidden=true;el('principles').hidden=false;input('file-input').value='';syncCropControls();syncComparison();syncPhotoControls();if(announce)status('File cleared. Choose another image.');
 }
 function updateFormat() {
   const format=el<HTMLSelectElement>('format').value;el('quality-row').hidden=format==='image/png';
@@ -159,8 +175,10 @@ el('clear').onclick=()=>{clearSession();el('choose-file').focus();};
 el('export-form').onsubmit=e=>{e.preventDefault();if(!busy)void process('export');};
 el('pdf-export').onclick=()=>{if(!busy)void process('pdf');};
 el('format').onchange=()=>{clearOutput();updateFormat();};
+el('size-preset').onchange=()=>{if(busy)return;clearOutput();syncSizePreset();};
+input('aspect').onchange=()=>{if(!input('aspect').checked){el<HTMLSelectElement>('size-preset').value='custom';syncSizePreset();}clearOutput();};
 input('quality').oninput=()=>{el('quality-value').textContent=input('quality').value;clearOutput();};
-for(const [changed,other] of [['width','height'],['height','width']])input(changed).oninput=()=> {clearOutput();if(input('aspect').checked){const n=Number(input(changed).value);if(Number.isFinite(n)&&n>0)input(other).value=String(Math.max(1,Math.round(changed==='width'?n/ratio:n*ratio)));}};
+for(const [changed,other] of [['width','height'],['height','width']])input(changed).oninput=()=> {clearOutput();el<HTMLSelectElement>('size-preset').value='custom';syncSizePreset();if(input('aspect').checked){const n=Number(input(changed).value);if(Number.isFinite(n)&&n>0)input(other).value=String(Math.max(1,Math.round(changed==='width'?n/ratio:n*ratio)));}};
 for(const [id,action] of [['rotate',()=>history.rotate()],['flip',()=>history.flip()],['undo',()=>history.undo()],['reset',()=>history.reset()]] as const)el(id).onclick=()=>editPhoto(action);
 el('frame-apply').onclick=()=>{if(busy||!file)return;const preset=el<HTMLSelectElement>('frame-select').value;if(!isFramePreset(preset)){status('Choose a supported crop format.',true);return;}if(preset===history.current.frame){status('This framing is already applied.');return;}editPhoto(()=>history.setFrame(preset));};
 for(const axis of ['crop-x','crop-y'] as const) {
@@ -283,6 +301,7 @@ const batchStatus=(message:string)=>{el('batch-status').textContent=message;};
 function syncBatch() {
   batchInput.disabled=batchBusy;
   el<HTMLSelectElement>('batch-format').disabled=batchBusy;
+  el<HTMLSelectElement>('batch-size').disabled=batchBusy;
   el<HTMLButtonElement>('batch-start').disabled=batchBusy||!batchFiles.length;
   el('batch-cancel').hidden=!batchBusy;
 }
@@ -314,6 +333,9 @@ el('batch-start').onclick=async()=>{
   if(batchBusy||busy||!batchFiles.length){if(busy)batchStatus('Finish or cancel the current Photo edit first.');return;}
   const format=el<HTMLSelectElement>('batch-format').value as ImageMime;
   if(!['image/png','image/jpeg','image/webp'].includes(format)){batchStatus('Select PNG, JPEG or WebP.');return;}
+  const chosenSize=el<HTMLSelectElement>('batch-size').value;
+  const fitWithin=chosenSize==='original'?undefined:Number(chosenSize.slice('long-'.length));
+  if(chosenSize!=='original'&&(!chosenSize.startsWith('long-')||!isLongEdge(fitWithin))){batchStatus('Select a supported batch size preset.');return;}
   const files=[...batchFiles],serial=++batchSerial;
   // Replacing results releases all previous Blob URLs before allocating new ones.
   batchUrls.forEach(slot=>slot.clear());batchUrls.length=0;batchStoredBytes=0;
@@ -327,7 +349,7 @@ el('batch-start').onclick=async()=>{
     batchStatus('Converting '+(index+1)+' of '+files.length+' images on this device…');
     try {
       const result=await batchRunner.run<ImageResult>({
-        file:f,mode:'export',mime:format,quality:.85,photo:blankPhotoState()
+        file:f,mode:'export',mime:format,quality:.85,photo:blankPhotoState(),fitWithin:fitWithin as LongEdge | undefined
       } satisfies ImageJob,()=>{});
       if(serial!==batchSerial)return;
       if(result.blob.size+batchStoredBytes>64*1024*1024)

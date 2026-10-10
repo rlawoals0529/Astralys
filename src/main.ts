@@ -190,6 +190,7 @@ el('redact-apply').onclick=()=>{
 el('redact-draw').onclick=()=>{
   if(busy||!file)return;
   redactArmed=!redactArmed;syncPhotoControls();
+  if(redactArmed)previewImage.scrollIntoView({block:'center',behavior:'auto'});
   status(redactArmed?'Drag over the edited image to mark a permanent opaque black rectangle.':'Rectangle selection off.');
 };
 function updateRedactionOutline(x1:number,y1:number,x2:number,y2:number) {

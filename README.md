@@ -69,6 +69,7 @@ TypeScript/Vite native DOM UI → typed action/file logic → disposable image w
 - [Prioritized product roadmap](docs/product/ROADMAP.md)
 - [Before/after Photo comparison verification](docs/reports/PHOTO_COMPARE.md)
 - [Export presets and fidelity verification](docs/reports/EXPORT_FIDELITY.md)
+- [Photo fidelity, memory and accessibility QA protocol](docs/quality/PHOTO_QA_PROTOCOL.md) — manual real-photo/AT/process-memory checks still open
 - [Batch conversion, tone and opaque redaction verification](docs/reports/BATCH_TONE_REDACTION.md)
 - [Resume prompt for a new ChatGPT chat](docs/RESUME_PROMPT.md)
 

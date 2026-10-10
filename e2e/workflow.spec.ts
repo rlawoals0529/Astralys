@@ -247,7 +247,9 @@ test('crop preview drag and keyboard sliders reposition real exported pixels',as
  };
  expect((await sample(a)).first).toEqual([255,0,0,255]);
  await page.getByRole('button',{name:'Undo',exact:true}).click();
+ await expect(page.locator('#cancel')).toBeHidden();
  await expect(page.locator('#crop-x')).toHaveValue('50');
+ await expect(page.locator('#crop-x')).toBeEnabled();
  await page.locator('#crop-x').focus();
  await page.keyboard.press('End');
  await expect(page.locator('#crop-x')).toHaveValue('100');

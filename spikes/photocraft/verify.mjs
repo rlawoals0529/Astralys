@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 const bytes=await readFile(new URL('./target/wasm32-unknown-unknown/release/astralys_photo_spike.wasm',import.meta.url));
 const module=await WebAssembly.compile(bytes);
-const {instance}=await WebAssembly.instantiate(module);
+const instance=await WebAssembly.instantiate(module);
 const {astralys_blend:blend,astralys_tile_ptr:tilePtr,astralys_tile_blend:tileBlend,memory}=instance.exports;
 assert.equal(blend(0,.5,.25),.125);
 assert.equal(blend(1,.5,.25),.625);

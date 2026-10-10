@@ -10,7 +10,7 @@ A local-first creative workspace: start with a file, find a useful next action, 
 - Dedicated worker for bounded still-image decode, resize and PNG/JPEG/WebP export.
 - Metadata-container inspection and pixel re-encoding with removal of EXIF/XMP/comments and other supported ancillary metadata. This is not anonymization; visible information remains.
 - Single-page image-to-PDF export in the same worker: JPEG compression, white background, no searchable text. Existing PDFs are not opened.
-- Photo workspace: rotate, horizontal flip, choose square/portrait/classic/widescreen crops, and reposition the crop with a drag gesture or keyboard-accessible horizontal/vertical sliders. Crop positions join undo/reset history; preview and image/PDF exports share the same bounded worker geometry, without modifying the original File.
+- Photo workspace: rotate, horizontal flip, square/portrait/classic/widescreen crop presets and drag/keyboard crop positioning. A local, side-by-side Before/After comparison retains the first sanitized preview and displays the current edit; crop positions remain undoable. Image/PDF exports use bounded worker geometry without modifying the original File.
 - Cancellation, worker timeouts, URL revocation, malformed/unsupported/oversized-file errors and recovery.
 - Local-only Media Link classification. YouTube and all remote fetching remain gated.
 - Keyboard-operable controls, focus styles, status announcements and reduced-motion styling.
@@ -62,10 +62,11 @@ TypeScript/Vite native DOM UI → typed action/file logic → disposable image w
 - [Baseline verification](docs/reports/MILESTONE_1.md), [image-to-PDF extension](docs/reports/IMAGE_PDF.md), [RGBA tile spike](docs/reports/PHOTO_RGBA.md), [multi-tile verification](docs/reports/PHOTO_MULTITILE.md), [production Photo framing](docs/reports/PHOTO_FRAMING.md)
 - [PhotoCraft and REA research/reference boundary](docs/development/REFERENCE_TOOLS.md) — optional, guarded REA static inspection of local `dist` after explicit opt-in; not bundled
 - [Verified crop repositioning and REA developer bridge](docs/reports/PHOTO_REPOSITION_REA.md)
+- [Prioritized product roadmap](docs/product/ROADMAP.md)
 - [Resume prompt for a new ChatGPT chat](docs/RESUME_PROMPT.md)
 
 Original code is MIT. Upstream names, marks, assets and dependencies retain their own rights. Stock ffmpeg.wasm core is GPL-licensed; it is not bundled. License review and automated tests do not establish legal approval or security certification.
 
 ## Next milestone
 
-With user-repositionable crop framing merged and tested, prioritize a before/after Photo preview and representative real-world image/accessibility/performance checks. The PhotoCraft multi-tile WASM worker remains isolated pending color, licensing and security review. The opt-in REA command is for developer builds only; it does not ship or install a runtime. No backend or remote-media release is approved; keep provider access gated until separate legal/product and SSRF reviews pass.
+With non-destructive Before/After comparison added to the crop and rotation workflow, prioritize batch image conversion and real-world image/accessibility/performance checks. The PhotoCraft multi-tile WASM worker remains isolated pending color, licensing and security review. The opt-in REA command is for developer builds only; it does not ship or install a runtime. No backend or remote-media release is approved; keep provider access gated until separate legal/product and SSRF reviews pass.

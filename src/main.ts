@@ -7,12 +7,25 @@ import { PhotoHistory, frameBounds, isFramePreset } from './core/photo';
 import type { ImageJob, ImageResult } from './workers/image.worker';
 function el<T extends HTMLElement = HTMLElement>(id: string): T { const node=document.getElementById(id); if(!node)throw new Error(`Missing element ${id}`);return node as T; }
 const runner=new JobRunner(()=>new Worker(new URL('./workers/image.worker.ts',import.meta.url),{type:'module'}));
-const previewUrl=new ObjectUrlSlot(), outputUrl=new ObjectUrlSlot(), history=new PhotoHistory();
+const previewUrl=new ObjectUrlSlot(), originalPreviewUrl=new ObjectUrlSlot(), outputUrl=new ObjectUrlSlot(), history=new PhotoHistory();
 let rollback: (()=>void) | undefined;
-let file: File | undefined, info: ImageInfo | undefined, requestId=0, busy=false, photoOpen=false, ratio=1;
+let file: File | undefined, info: ImageInfo | undefined, requestId=0, busy=false, photoOpen=false, compareMode=false, ratio=1;
 let cropDrag: {pointerId:number; x:number; y:number; width:number; height:number; cropX:number; cropY:number} | undefined;
 const status=(message:string,error=false)=> {el('status').textContent=message;el('status-row').classList.toggle('error',error);};
 const input=(id:string)=>el<HTMLInputElement>(id);
+function syncComparison() {
+  const ready=Boolean(file&&info&&originalPreviewUrl.value&&previewUrl.value);
+  const active=ready&&photoOpen&&compareMode;
+  const button=el<HTMLButtonElement>('compare');
+  button.disabled=!ready||busy;
+  button.setAttribute('aria-pressed',String(active));
+  button.textContent=active?'Close comparison':'Compare original';
+  el('comparison-original').hidden=!active;
+  const stage=el('preview-stage');
+  stage.classList.toggle('compare-mode',active);
+  stage.setAttribute('aria-label',active?'Original and edited image comparison':'Edited image preview');
+  el('preview-label').textContent=active?'AFTER · EDITED':'LOCAL PREVIEW';
+}
 const percent=(n:number)=>Math.max(0,Math.min(100,Math.round(n)));
 function syncCropControls() {
   const state=history.current;
@@ -37,7 +50,7 @@ function applyCropPosition(x:number,y:number) {
   history.setPosition(cropX,cropY);void process('inspect');
 }
 function clearOutput() {outputUrl.clear();el('result').hidden=true;el('download').removeAttribute('href');}
-function setBusy(value:boolean) {busy=value;el('cancel').hidden=!value;el('progress').hidden=!value;el('workspace').setAttribute('aria-busy',String(value));for(const field of document.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLButtonElement>('#export-form input, #export-form select, #suggestions button'))field.disabled=value;for(const id of ['export','pdf-export','rotate','flip','reset','sample','frame-apply']) el<HTMLButtonElement>(id).disabled=value;el<HTMLSelectElement>('frame-select').disabled=value;el<HTMLButtonElement>('undo').disabled=value||!history.canUndo;syncCropControls();}
+function setBusy(value:boolean) {busy=value;el('cancel').hidden=!value;el('progress').hidden=!value;el('workspace').setAttribute('aria-busy',String(value));for(const field of document.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLButtonElement>('#export-form input, #export-form select, #suggestions button'))field.disabled=value;for(const id of ['export','pdf-export','rotate','flip','reset','sample','frame-apply']) el<HTMLButtonElement>(id).disabled=value;el<HTMLSelectElement>('frame-select').disabled=value;el<HTMLButtonElement>('undo').disabled=value||!history.canUndo;syncCropControls();syncComparison();}
 function settings(mode:'inspect'|'export'|'pdf'): ImageJob {
   if(!file) throw new Error('Choose an image first.');
   const width=Number(input('width').value),height=Number(input('height').value);
@@ -50,7 +63,13 @@ async function process(mode:'inspect'|'export'|'pdf') {
     const result=await runner.run<ImageResult>(settings(mode),s=> {if(id===requestId)status(s);});
     if(id!==requestId)return;
     info=result.info;
-    if(mode!=='pdf')el<HTMLImageElement>('preview').src=previewUrl.set(result.blob);
+    if(mode!=='pdf') {
+      el<HTMLImageElement>('preview').src=previewUrl.set(result.blob);
+      // Retain only a sanitized, bounded first preview; never create a URL for the raw File.
+      if(mode==='inspect'&&!originalPreviewUrl.value) {
+        el<HTMLImageElement>('original-preview').src=originalPreviewUrl.set(result.blob);
+      }
+    }
     if(mode==='inspect') {
       input('width').value=String(result.width);input('height').value=String(result.height);ratio=result.width/result.height;
       rollback=undefined;renderFile();status('Image ready. Choose an action or adjust your export.');
@@ -78,7 +97,7 @@ function renderFile() {
     if(action==='Resize'){input('width').focus();return;}
     el<HTMLSelectElement>('format').value=action==='Remove metadata'?info!.mime:action==='Convert to PNG'?'image/png':'image/webp';updateFormat();void process('export');
   };list.append(b);}
-  el('photo-tools').hidden=!photoOpen;el<HTMLSelectElement>('frame-select').value=history.current.frame;syncCropControls();updateFormat();
+  el('photo-tools').hidden=!photoOpen;el<HTMLSelectElement>('frame-select').value=history.current.frame;syncCropControls();syncComparison();updateFormat();
 }
 async function chooseFile(next: File) {
   clearSession(false);file=next;
@@ -86,13 +105,13 @@ async function chooseFile(next: File) {
   status('Opening image…');await process('inspect');
 }
 function clearSession(announce=true) {
-  document.body.classList.remove('has-file');++requestId;runner.cancel();cropDrag=undefined;rollback=undefined;setBusy(false);file=undefined;info=undefined;history.reset();el<HTMLSelectElement>('frame-select').value='original';previewUrl.clear();clearOutput();el<HTMLImageElement>('preview').removeAttribute('src');el('workspace').hidden=true;el('principles').hidden=false;input('file-input').value='';syncCropControls();if(announce)status('File cleared. Choose another image.');
+  document.body.classList.remove('has-file');++requestId;runner.cancel();cropDrag=undefined;rollback=undefined;setBusy(false);file=undefined;info=undefined;compareMode=false;history.reset();el<HTMLSelectElement>('frame-select').value='original';previewUrl.clear();originalPreviewUrl.clear();clearOutput();el<HTMLImageElement>('preview').removeAttribute('src');el<HTMLImageElement>('original-preview').removeAttribute('src');el('workspace').hidden=true;el('principles').hidden=false;input('file-input').value='';syncCropControls();syncComparison();if(announce)status('File cleared. Choose another image.');
 }
 function updateFormat() {
   const format=el<HTMLSelectElement>('format').value;el('quality-row').hidden=format==='image/png';
   el('format-help').textContent=format==='image/jpeg'?'JPEG replaces transparent areas with white. Re-encoding can change color and detail.':format==='image/png'?'PNG keeps transparency. Lossless output can be larger than the original.':'WebP keeps transparency. Smaller output is not guaranteed.';
 }
-function showPhoto() {photoOpen=true;el('photo-tools').hidden=false;syncCropControls();status('Photo adjustments are non-destructive. Export when you are ready.');el('rotate').focus();}
+function showPhoto() {photoOpen=true;el('photo-tools').hidden=false;syncCropControls();syncComparison();status('Photo adjustments are non-destructive. Export when you are ready.');el('rotate').focus();}
 el('choose-file').onclick=()=>input('file-input').click();
 input('file-input').onchange=()=> {const next=input('file-input').files?.[0];if(next)void chooseFile(next);};
 const drop=el('dropzone');
@@ -117,6 +136,11 @@ for(const axis of ['crop-x','crop-y'] as const) {
   };
 }
 el('crop-center').onclick=()=>applyCropPosition(50,50);
+el('compare').onclick=()=> {
+  if(busy||!file||!info||!originalPreviewUrl.value)return;
+  compareMode=!compareMode;syncComparison();
+  status(compareMode?'Comparing the original framing with your current edit. Both previews stay on this device.':'Showing only the current edit.');
+};
 const previewImage=el<HTMLImageElement>('preview');
 previewImage.draggable=false;
 previewImage.onpointerdown=e=>{
@@ -152,12 +176,12 @@ function inputTab(link:boolean) {el('file-entry').hidden=link;el('link-entry').h
 el('file-tab').onclick=()=>inputTab(false);el('link-tab').onclick=()=>inputTab(true);
 el('link-entry').onsubmit=e=>{e.preventDefault();const result=el('link-result');result.replaceChildren();result.hidden=false;try{const c=classifyMediaLink(input('media-url').value);const heading=document.createElement('h2'),body=document.createElement('p');heading.textContent=c.title;body.textContent=c.message;result.append(heading,body);}catch(error){result.textContent=(error as Error).message;}};
 el('privacy-button').onclick=()=>{el('privacy-panel').hidden=!el('privacy-panel').hidden;};el('close-privacy').onclick=()=>{el('privacy-panel').hidden=true;el('privacy-button').focus();};
-const categories: Record<string,[string,string]>={images:['Image tools, ready here.','Convert, resize, remove metadata, or make simple Photo adjustments. PNG, JPEG and WebP stay on your device.'],video:['Video is on the roadmap.','Transcoding, trimming and audio extraction are not available in this build. No video file is opened or uploaded.'],audio:['Audio is on the roadmap.','Local audio conversion will follow codec and distribution review. No audio processor is loaded.'],pdf:['One image, one PDF.','Choose a PNG, JPEG or WebP image, then create a single-page PDF locally. JPEG compression and a white background are used. This build does not open, render, merge or modify existing PDFs.'],documents:['Documents are on the roadmap.','Office document conversion is not supported yet. Files are never uploaded as a fallback.'],archives:['Archive tools are on the roadmap.','Extraction will require path, file-count and expanded-size protections. No archive extraction is available now.'],data:['Data tools are on the roadmap.','CSV and JSON inspection and conversion are planned. No data parsing is available in this build.'],creative:['Photo studio · a small beginning.','Open an image for rotation, flipping and non-destructive reset. Layers, drawing, PSD and other editors are future work.']};
+const categories: Record<string,[string,string]>={images:['Image tools, ready here.','Convert, resize, remove metadata, or make simple Photo adjustments. PNG, JPEG and WebP stay on your device.'],video:['Video is on the roadmap.','Transcoding, trimming and audio extraction are not available in this build. No video file is opened or uploaded.'],audio:['Audio is on the roadmap.','Local audio conversion will follow codec and distribution review. No audio processor is loaded.'],pdf:['One image, one PDF.','Choose a PNG, JPEG or WebP image, then create a single-page PDF locally. JPEG compression and a white background are used. This build does not open, render, merge or modify existing PDFs.'],documents:['Documents are on the roadmap.','Office document conversion is not supported yet. Files are never uploaded as a fallback.'],archives:['Archive tools are on the roadmap.','Extraction will require path, file-count and expanded-size protections. No archive extraction is available now.'],data:['Data tools are on the roadmap.','CSV and JSON inspection and conversion are planned. No data parsing is available in this build.'],creative:['Photo studio · a small beginning.','Crop and reposition an image, rotate, flip, compare with the original and export locally. Layers, drawing and PSD editing are future work.']};
 for(const button of document.querySelectorAll<HTMLButtonElement>('[data-category]')) button.onclick=()=> {
   for(const b of document.querySelectorAll('[data-category]')){b.classList.remove('active');b.removeAttribute('aria-current');}button.classList.add('active');button.setAttribute('aria-current','page');
   const c=button.dataset.category!;const detail=categories[c];el('category-panel').hidden=!detail;
   if(detail){el('category-title').textContent=detail[0];el('category-copy').textContent=detail[1];}
-  photoOpen=c==='creative';el('photo-tools').hidden=!photoOpen;syncCropControls();inputTab(false);if(photoOpen&&info)showPhoto();
+  photoOpen=c==='creative';el('photo-tools').hidden=!photoOpen;syncCropControls();syncComparison();inputTab(false);if(photoOpen&&info)showPhoto();
 };
 el('sample').onclick=async()=> {
   const canvas=document.createElement('canvas');canvas.width=960;canvas.height=640;const ctx=canvas.getContext('2d')!;
@@ -167,7 +191,7 @@ el('sample').onclick=async()=> {
   ctx.fillStyle='#f5edd9';ctx.font='28px Georgia';ctx.fillText('a small shift in perspective',50,70);
   canvas.toBlob(blob=>{if(blob)void chooseFile(new File([blob],'astralys-sample.png',{type:'image/png'}));},'image/png');
 };
-window.addEventListener('pagehide',()=>{++requestId;runner.cancel();previewUrl.clear();clearOutput();file=undefined;info=undefined;});
+window.addEventListener('pagehide',()=>{++requestId;runner.cancel();previewUrl.clear();originalPreviewUrl.clear();clearOutput();file=undefined;info=undefined;});
 window.addEventListener('pageshow',e=>{if(e.persisted)clearSession();});
 updateFormat();
 document.documentElement.dataset.appReady='true';

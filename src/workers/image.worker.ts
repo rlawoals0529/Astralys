@@ -1,7 +1,7 @@
 import { checkDimensions, checkSize, inspect, stripEncodedMetadata } from '../core/files';
 import type { ImageInfo, ImageMime } from '../core/files';
 import { imagePdf } from '../core/pdf';
-import { frameBounds, isFramePreset } from '../core/photo';
+import { applyTone, frameBounds, redactionBounds, validatePhotoState } from '../core/photo';
 import type { PhotoState } from '../core/photo';
 export interface ImageJob { file: File; mode: 'inspect' | 'export' | 'pdf'; mime: ImageMime; width?: number; height?: number; quality: number; photo: PhotoState; }
 export interface ImageResult { blob: Blob; info: ImageInfo; width: number; height: number; }
@@ -14,7 +14,7 @@ self.onmessage=async (event: MessageEvent<ImageJob>)=> {
     checkSize(job.file.size);
     if(!['image/png','image/jpeg','image/webp'].includes(job.mime)) throw new Error('Unsupported output format.');
     if(!Number.isFinite(job.quality) || job.quality < 0.1 || job.quality > 1) throw new Error('Quality must be between 10 and 100.');
-    if(!Number.isInteger(job.photo.turns) || job.photo.turns<0 || job.photo.turns>3 || typeof job.photo.flip!=='boolean' || !isFramePreset(job.photo.frame) || !Number.isInteger(job.photo.cropX) || job.photo.cropX < 0 || job.photo.cropX > 100 || !Number.isInteger(job.photo.cropY) || job.photo.cropY < 0 || job.photo.cropY > 100) throw new Error('Invalid photo operation.');
+    validatePhotoState(job.photo);
     stage('Checking file structure…');
     const bytes=new Uint8Array(await job.file.arrayBuffer());
     const info=inspect(bytes,job.file.name,job.file.type);
@@ -36,6 +36,22 @@ self.onmessage=async (event: MessageEvent<ImageJob>)=> {
     if(job.mode==='pdf' || (job.mime==='image/jpeg' && job.mode==='export')) {ctx.fillStyle='#ffffff';ctx.fillRect(0,0,width,height);}
     ctx.save();ctx.scale(width/frame.width,height/frame.height);ctx.translate(-frame.x,-frame.y);ctx.translate(orientedW/2,orientedH/2);ctx.rotate(job.photo.turns*Math.PI/2);ctx.scale(job.photo.flip?-1:1,1);
     ctx.drawImage(bitmap,-bitmap.width/2,-bitmap.height/2);ctx.restore();
+    if(job.photo.brightness||job.photo.contrast||job.photo.saturation) {
+      if(width*height>4_000_000)throw new Error('Tonal adjustments are limited to 4 million output pixels. Reduce export dimensions.');
+      stage('Adjusting brightness and color…');
+      const pixels=ctx.getImageData(0,0,width,height);
+      applyTone(pixels.data,job.photo.brightness,job.photo.contrast,job.photo.saturation);
+      ctx.putImageData(pixels,0,0);
+    }
+    if(job.photo.redactions.length) {
+      stage('Applying opaque pixel redactions…');
+      ctx.fillStyle='#000000';
+      ctx.globalCompositeOperation='source-over';
+      for(const rect of job.photo.redactions) {
+        const bounds=redactionBounds(width,height,rect);
+        ctx.fillRect(bounds.x,bounds.y,bounds.width,bounds.height);
+      }
+    }
     stage('Encoding and removing metadata…');
     const mime=job.mode==='inspect'?'image/png':job.mode==='pdf'?'image/jpeg':job.mime;
     const encoded=await canvas.convertToBlob({type:mime,quality:job.mode==='pdf'?0.92:job.quality});

@@ -364,3 +364,142 @@ test('exports a real local single-page PDF while preserving the image preview',a
  expect(inspect(bytes.subarray(jpegStart,jpegStart+length)).metadata).toEqual([]);
  await page.getByRole('button',{name:'Convert to PDF',exact:true}).click();await expect(page.locator('#cancel')).toBeHidden();await expect(page.locator('#download')).toBeVisible();
 });
+
+test('batch conversion isolates malformed inputs and provides manual sanitized downloads',async({page})=>{
+ await page.locator('#batch-files').setInputFiles([
+  {name:'first.png',mimeType:'image/png',buffer:png()},
+  {name:'broken.png',mimeType:'image/png',buffer:Buffer.from('invalid image bytes')},
+  {name:'second.png',mimeType:'image/png',buffer:png()}
+ ]);
+ await expect(page.locator('#batch-start')).toBeEnabled();
+ await page.locator('#batch-format').selectOption('image/webp');
+ await page.getByRole('button',{name:'Convert selected'}).click();
+ await expect(page.locator('#batch-status')).toContainText('2 ready, 1 failed');
+ await expect(page.locator('#batch-results li')).toHaveCount(3);
+ await expect(page.locator('#batch-results a')).toHaveCount(2);
+ await expect(page.locator('#batch-results .batch-error')).toHaveCount(1);
+ await expect(page.locator('#batch-results')).toContainText('broken.png');
+ await expect(page.locator('#batch-results .batch-error')).toContainText('not supported');
+ const pending=page.waitForEvent('download');
+ await page.getByRole('link',{name:'Download file 1'}).click();
+ const downloaded=await pending;
+ expect(downloaded.suggestedFilename()).toBe('first-astralys-1.webp');
+ const bytes=await readFile((await downloaded.path())!);
+ expect(inspect(bytes)).toMatchObject({mime:'image/webp',width:8,height:4,metadata:[]});
+ await page.getByRole('button',{name:'Clear results'}).click();
+ await expect(page.locator('#batch-results')).toBeEmpty();
+ await expect(page.locator('#batch-start')).toBeDisabled();
+});
+test('batch selection and cancellation stay bounded; no downloads occur automatically',async({page})=>{
+ const tooMany=Array.from({length:9},(_,i)=>({name:'img'+i+'.png',mimeType:'image/png',buffer:png()}));
+ await page.locator('#batch-files').setInputFiles(tooMany);
+ await expect(page.locator('#batch-status')).toContainText('at most 8');
+ await expect(page.locator('#batch-start')).toBeDisabled();
+ await page.route('**/assets/image.worker-*.js',route=>route.fulfill({contentType:'text/javascript',body:'self.onmessage=()=>{}'}));
+ await page.locator('#batch-files').setInputFiles([{name:'stalled.png',mimeType:'image/png',buffer:png()}]);
+ await page.getByRole('button',{name:'Convert selected'}).click();
+ await expect(page.getByRole('button',{name:'Cancel batch'})).toBeVisible();
+ await page.getByRole('button',{name:'Cancel batch'}).click();
+ await expect(page.locator('#batch-status')).toContainText('Batch cancelled');
+ await expect(page.locator('#batch-results a')).toHaveCount(0);
+ await page.unroute('**/assets/image.worker-*.js');
+ await page.getByRole('button',{name:'Convert selected'}).click();
+ await expect(page.locator('#batch-status')).toContainText('1 ready, 0 failed');
+ await expect(page.locator('#batch-results a')).toHaveCount(1);
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+test('light and color adjustments change downloaded pixels, preserve alpha and undo',async({page})=>{
+ const generated=await page.evaluate(async()=>{
+  const canvas=document.createElement('canvas');canvas.width=8;canvas.height=4;
+  const ctx=canvas.getContext('2d')!;
+  ctx.fillStyle='rgba(80,120,160,0.5)';ctx.fillRect(0,0,8,4);
+  const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('PNG failed')),'image/png'));
+  return Array.from(new Uint8Array(await blob.arrayBuffer()));
+ });
+ await load(page,'tone.png','image/png',Buffer.from(generated));
+ await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
+ await page.getByRole('button',{name:'Compare original'}).click();
+ const original=await page.locator('#original-preview').getAttribute('src');
+ await page.locator('#tone-brightness').evaluate(node=>{const slider=node as HTMLInputElement;slider.value='20';slider.dispatchEvent(new Event('change',{bubbles:true}));});
+ await expect(page.locator('#tone-brightness')).toHaveValue('20');await expect(page.locator('#cancel')).toBeHidden();
+ await page.locator('#tone-saturation').evaluate(node=>{const slider=node as HTMLInputElement;slider.value='-100';slider.dispatchEvent(new Event('change',{bubbles:true}));});
+ await expect(page.locator('#tone-saturation')).toHaveValue('-100');await expect(page.locator('#cancel')).toBeHidden();
+ await expect(page.locator('#original-preview')).toHaveAttribute('src',original!);
+ await page.locator('#format').selectOption('image/png');
+ await page.getByRole('button',{name:'Create image'}).click();
+ const pending=page.waitForEvent('download');await page.getByRole('link',{name:'Download image'}).click();
+ const downloaded=await pending;const bytes=await readFile((await downloaded.path())!);
+ const pixel=await page.evaluate(async arr=>{
+  const bitmap=await createImageBitmap(new Blob([new Uint8Array(arr)],{type:'image/png'}));
+  const canvas=document.createElement('canvas');canvas.width=bitmap.width;canvas.height=bitmap.height;
+  const ctx=canvas.getContext('2d')!;ctx.drawImage(bitmap,0,0);bitmap.close();
+  return Array.from(ctx.getImageData(0,0,1,1).data);
+ },Array.from(bytes));
+ expect(Math.max(...pixel.slice(0,3))-Math.min(...pixel.slice(0,3))).toBeLessThanOrEqual(1);
+ expect(pixel[0]).toBeGreaterThan(120);
+ expect(pixel[3]).toBeGreaterThanOrEqual(125);
+ expect(pixel[3]).toBeLessThanOrEqual(129);
+ await page.getByRole('button',{name:'Undo',exact:true}).click();
+ await expect(page.locator('#tone-saturation')).toHaveValue('0');
+ await expect(page.locator('#tone-brightness')).toHaveValue('20');
+ await page.getByRole('button',{name:'Reset light and color'}).click();
+ await expect(page.locator('#tone-brightness')).toHaveValue('0');
+ await expect(page.locator('#tone-contrast')).toHaveValue('0');
+ await expect(page.locator('#cancel')).toBeHidden();
+});
+test('black redaction destroys selected output pixels across PNG export and is undoable',async({page})=>{
+ const source=await page.evaluate(async()=>{
+  const canvas=document.createElement('canvas');canvas.width=8;canvas.height=4;
+  const ctx=canvas.getContext('2d')!;
+  ctx.fillStyle='#ff0000';ctx.fillRect(0,0,4,4);ctx.fillStyle='#0000ff';ctx.fillRect(4,0,4,4);
+  const b=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(x=>x?resolve(x):reject(new Error('No image')),'image/png'));
+  return Array.from(new Uint8Array(await b.arrayBuffer()));
+ });
+ await load(page,'redact-source.png','image/png',Buffer.from(source));
+ await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
+ await page.getByRole('button',{name:'Compare original'}).click();
+ const initial=await page.locator('#original-preview').getAttribute('src');
+ await page.locator('#redact-x').fill('0');await page.locator('#redact-y').fill('0');
+ await page.locator('#redact-width').fill('50');await page.locator('#redact-height').fill('100');
+ await page.getByRole('button',{name:'Apply black redaction'}).click();
+ await expect(page.locator('#redact-count')).toContainText('1 / 10');
+ await expect(page.locator('#cancel')).toBeHidden();
+ await expect(page.locator('#original-preview')).toHaveAttribute('src',initial!);
+ await page.locator('#format').selectOption('image/png');
+ await page.getByRole('button',{name:'Create image'}).click();
+ const pending=page.waitForEvent('download');await page.getByRole('link',{name:'Download image'}).click();
+ const downloaded=await pending;const bytes=await readFile((await downloaded.path())!);
+ expect(inspect(bytes)).toMatchObject({width:8,height:4,metadata:[]});
+ const colors=await page.evaluate(async arr=>{
+  const bmp=await createImageBitmap(new Blob([new Uint8Array(arr)],{type:'image/png'}));
+  const canvas=document.createElement('canvas');canvas.width=bmp.width;canvas.height=bmp.height;
+  const ctx=canvas.getContext('2d')!;ctx.drawImage(bmp,0,0);bmp.close();
+  return [Array.from(ctx.getImageData(1,1,1,1).data),Array.from(ctx.getImageData(7,1,1,1).data)];
+ },Array.from(bytes));
+ expect(colors[0]).toEqual([0,0,0,255]);
+ expect(colors[1]).toEqual([0,0,255,255]);
+ await page.getByRole('button',{name:'Undo',exact:true}).click();
+ await expect(page.locator('#redact-count')).toContainText('0 / 10');
+ await expect(page.locator('#cancel')).toBeHidden();
+ await page.getByRole('button',{name:'Select redaction on preview'}).click();
+ const image=page.locator('#preview'),box=await image.boundingBox();expect(box).toBeTruthy();
+ await page.mouse.move(box!.x+box!.width*0.15,box!.y+box!.height*0.2);
+ await page.mouse.down();
+ await page.mouse.move(box!.x+box!.width*0.5,box!.y+box!.height*0.8,{steps:6});
+ await page.mouse.up();
+ await expect(page.locator('#redact-count')).toContainText('1 / 10');
+ await expect(page.locator('#redact-draw')).toHaveAttribute('aria-pressed','false');
+});
+test('cancelling a tonal edit restores its original parameter and pixels',async({page})=>{
+ await load(page);await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
+ const src=await page.locator('#preview').getAttribute('src');
+ await page.route('**/assets/image.worker-*.js',route=>route.fulfill({contentType:'text/javascript',body:'self.onmessage=()=>{}'}));
+ await page.locator('#tone-contrast').evaluate(node=>{const slider=node as HTMLInputElement;slider.value='80';slider.dispatchEvent(new Event('change',{bubbles:true}));});
+ await expect(page.locator('#cancel')).toBeVisible();
+ await page.getByRole('button',{name:'Cancel',exact:true}).click();
+ await expect(page.locator('#tone-contrast')).toHaveValue('0');
+ await expect(page.locator('#preview')).toHaveAttribute('src',src!);
+ await expect(page.getByRole('button',{name:'Undo',exact:true})).toBeDisabled();
+ await page.unroute('**/assets/image.worker-*.js');
+});

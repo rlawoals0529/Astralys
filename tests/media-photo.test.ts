@@ -1,12 +1,12 @@
 import { it,expect } from 'vitest';
 import { classifyMediaLink,YOUTUBE_RESOLVER_ENABLED } from '../src/core/media';
-import { PhotoHistory, frameBounds, isFramePreset } from '../src/core/photo';
+import { PhotoHistory, applyTone, frameBounds, isFramePreset, redactionBounds, validRedaction, validatePhotoState } from '../src/core/photo';
 it.each(['https://youtube.com/watch?v=abc','https://www.youtube.com/watch?v=abc','https://youtu.be/abc'])('recognizes but never enables YouTube %s',url=>{expect(classifyMediaLink(url)).toMatchObject({provider:'youtube',enabled:false});expect(YOUTUBE_RESOLVER_ENABLED).toBe(false);});
 it.each(['http://example.com','file:///etc/passwd','javascript:alert(1)','https://user:password@example.com','https://example.com:8443/','invalid','x'.repeat(2049)])('rejects invalid links %s',url=>expect(()=>classifyMediaLink(url)).toThrow());
 it('does not mistake a lookalike host for YouTube',()=>expect(classifyMediaLink('https://youtube.com.evil.example/watch')).toMatchObject({provider:'unsupported',enabled:false}));
 it('does not treat local classification as permission to fetch',()=>expect(classifyMediaLink('https://127.0.0.1/a.mp4')).toMatchObject({enabled:false}));
-it('restores editing state through undo/reset without altering original',()=>{const h=new PhotoHistory();h.rotate();h.flip();expect(h.current).toEqual({turns:1,flip:true,frame:'original',cropX:50,cropY:50});h.undo();expect(h.current).toEqual({turns:1,flip:false,frame:'original',cropX:50,cropY:50});h.reset();expect(h.current).toEqual({turns:0,flip:false,frame:'original',cropX:50,cropY:50});expect(h.canUndo).toBe(false);});
-it('rolls back a cancelled edit checkpoint and keeps undo history',()=>{const h=new PhotoHistory();h.rotate();const c=h.checkpoint();h.flip();h.restore(c);expect(h.current).toEqual({turns:1,flip:false,frame:'original',cropX:50,cropY:50});h.undo();expect(h.current.turns).toBe(0);});
+it('restores editing state through undo/reset without altering original',()=>{const h=new PhotoHistory();h.rotate();h.flip();expect(h.current).toEqual({turns:1,flip:true,frame:'original',cropX:50,cropY:50,brightness:0,contrast:0,saturation:0,redactions:[]});h.undo();expect(h.current).toEqual({turns:1,flip:false,frame:'original',cropX:50,cropY:50,brightness:0,contrast:0,saturation:0,redactions:[]});h.reset();expect(h.current).toEqual({turns:0,flip:false,frame:'original',cropX:50,cropY:50,brightness:0,contrast:0,saturation:0,redactions:[]});expect(h.canUndo).toBe(false);});
+it('rolls back a cancelled edit checkpoint and keeps undo history',()=>{const h=new PhotoHistory();h.rotate();const c=h.checkpoint();h.flip();h.restore(c);expect(h.current).toEqual({turns:1,flip:false,frame:'original',cropX:50,cropY:50,brightness:0,contrast:0,saturation:0,redactions:[]});h.undo();expect(h.current.turns).toBe(0);});
 
 it('centers common aspect ratios without changing the original oriented dimensions',()=>{
   expect(frameBounds(8,4,'original')).toEqual({x:0,y:0,width:8,height:4});
@@ -26,16 +26,16 @@ it('rejects invalid crop formats or geometry instead of trying to draw them',()=
 it('crop presets are undoable with the rest of the photo edits and reset stays non-destructive',()=>{
   const history=new PhotoHistory();
   history.setFrame('square');
-  expect(history.current).toEqual({turns:0,flip:false,frame:'square',cropX:50,cropY:50});
+  expect(history.current).toEqual({turns:0,flip:false,frame:'square',cropX:50,cropY:50,brightness:0,contrast:0,saturation:0,redactions:[]});
   const checkpoint=history.checkpoint();
   history.rotate();
   history.flip();
   history.setFrame('portrait');
-  expect(history.current).toEqual({turns:1,flip:true,frame:'portrait',cropX:50,cropY:50});
+  expect(history.current).toEqual({turns:1,flip:true,frame:'portrait',cropX:50,cropY:50,brightness:0,contrast:0,saturation:0,redactions:[]});
   history.undo();
-  expect(history.current).toEqual({turns:1,flip:true,frame:'square',cropX:50,cropY:50});
+  expect(history.current).toEqual({turns:1,flip:true,frame:'square',cropX:50,cropY:50,brightness:0,contrast:0,saturation:0,redactions:[]});
   history.restore(checkpoint);
-  expect(history.current).toEqual({turns:0,flip:false,frame:'square',cropX:50,cropY:50});
+  expect(history.current).toEqual({turns:0,flip:false,frame:'square',cropX:50,cropY:50,brightness:0,contrast:0,saturation:0,redactions:[]});
   history.setFrame('square');
   expect(history.canUndo).toBe(true);
   history.undo();
@@ -71,4 +71,49 @@ it('stores crop position in one undoable checkpoint and resets it without mutati
   expect(h.current).toMatchObject({frame:'square',cropX:50,cropY:50});
   h.setPosition(50,50);expect(h.checkpoint()).toEqual(initial);
   h.reset();expect(h.current).toMatchObject({frame:'original',cropX:50,cropY:50});
+});
+
+it('new tonal controls are validated and restore through one undo checkpoint',()=>{
+  const h=new PhotoHistory();h.setTone('brightness',35);h.setTone('contrast',-20);
+  h.setTone('saturation',-100);
+  expect(h.current).toMatchObject({brightness:35,contrast:-20,saturation:-100});
+  const previous=h.checkpoint();
+  h.resetTone();expect(h.current).toMatchObject({brightness:0,contrast:0,saturation:0});
+  h.undo();expect(h.current).toMatchObject({brightness:35,contrast:-20,saturation:-100});
+  h.restore(previous);expect(h.current.saturation).toBe(-100);
+  for(const v of [101,-101,NaN,Infinity,0.5]) expect(()=>h.setTone('brightness',v)).toThrow('Invalid tonal adjustment.');
+});
+it('tone math changes color but never alpha and protects completely transparent pixels',()=>{
+  const pixels=new Uint8ClampedArray([80,120,160,128,205,180,50,0]);
+  applyTone(pixels,20,0,-100);
+  expect(pixels[0]).toBe(pixels[1]);
+  expect(pixels[1]).toBe(pixels[2]);
+  expect(pixels[3]).toBe(128);
+  expect(Array.from(pixels.slice(4))).toEqual([0,0,0,0]);
+  const identity=new Uint8ClampedArray([12,25,240,30]);applyTone(identity,0,0,0);
+  expect(Array.from(identity)).toEqual([12,25,240,30]);
+  expect(()=>applyTone(new Uint8ClampedArray([1,2,3]),0,0,0)).toThrow();
+});
+it('redaction rectangles are fully bounded and rasterize to inclusive opaque pixel regions',()=>{
+  expect(redactionBounds(8,4,{x:0,y:0,width:50,height:100})).toEqual({x:0,y:0,width:4,height:4});
+  expect(redactionBounds(8,4,{x:75,y:0,width:25,height:50})).toEqual({x:6,y:0,width:2,height:2});
+  expect(redactionBounds(3,3,{x:99,y:99,width:1,height:1})).toEqual({x:2,y:2,width:1,height:1});
+  for(const r of [{x:-1,y:0,width:20,height:20},{x:50,y:50,width:60,height:30},{x:0,y:0,width:0,height:10},{x:1.5,y:0,width:30,height:30}]) {
+    expect(validRedaction(r)).toBe(false);
+    expect(()=>redactionBounds(10,10,r)).toThrow();
+  }
+});
+it('black pixel redactions are non-destructive in history and capped at ten',()=>{
+  const h=new PhotoHistory();const r={x:0,y:0,width:40,height:60};
+  h.addRedaction(r);r.width=2;
+  expect(h.current.redactions[0].width).toBe(40);
+  const checkpoint=h.checkpoint();h.addRedaction({x:60,y:0,width:40,height:60});
+  h.undo();expect(h.current.redactions).toHaveLength(1);
+  h.restore(checkpoint);expect(h.current.redactions).toHaveLength(1);
+  h.setTone('contrast',10);expect(h.current.redactions).toHaveLength(1);
+  for(let i=0;i<9;i++) h.addRedaction({x:0,y:0,width:1,height:1});
+  expect(h.current.redactions).toHaveLength(10);
+  expect(()=>h.addRedaction({x:1,y:1,width:1,height:1})).toThrow('at most 10');
+  h.reset();expect(h.current.redactions).toEqual([]);
+  expect(()=>validatePhotoState({...h.current,redactions:[{x:95,y:95,width:20,height:20}]})).toThrow();
 });

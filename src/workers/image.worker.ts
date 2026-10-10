@@ -1,6 +1,7 @@
 import { checkDimensions, checkSize, inspect, stripEncodedMetadata } from '../core/files';
 import type { ImageInfo, ImageMime } from '../core/files';
 import { imagePdf } from '../core/pdf';
+import { frameBounds, isFramePreset } from '../core/photo';
 import type { PhotoState } from '../core/photo';
 export interface ImageJob { file: File; mode: 'inspect' | 'export' | 'pdf'; mime: ImageMime; width?: number; height?: number; quality: number; photo: PhotoState; }
 export interface ImageResult { blob: Blob; info: ImageInfo; width: number; height: number; }
@@ -13,7 +14,7 @@ self.onmessage=async (event: MessageEvent<ImageJob>)=> {
     checkSize(job.file.size);
     if(!['image/png','image/jpeg','image/webp'].includes(job.mime)) throw new Error('Unsupported output format.');
     if(!Number.isFinite(job.quality) || job.quality < 0.1 || job.quality > 1) throw new Error('Quality must be between 10 and 100.');
-    if(!Number.isInteger(job.photo.turns) || job.photo.turns<0 || job.photo.turns>3 || typeof job.photo.flip!=='boolean') throw new Error('Invalid photo operation.');
+    if(!Number.isInteger(job.photo.turns) || job.photo.turns<0 || job.photo.turns>3 || typeof job.photo.flip!=='boolean' || !isFramePreset(job.photo.frame)) throw new Error('Invalid photo operation.');
     stage('Checking file structure…');
     const bytes=new Uint8Array(await job.file.arrayBuffer());
     const info=inspect(bytes,job.file.name,job.file.type);
@@ -22,7 +23,9 @@ self.onmessage=async (event: MessageEvent<ImageJob>)=> {
     bitmap=await createImageBitmap(new Blob([bytes],{type:info.mime}));
     checkDimensions(bitmap.width,bitmap.height);
     const rotated=job.photo.turns%2===1;
-    const naturalW=rotated?bitmap.height:bitmap.width, naturalH=rotated?bitmap.width:bitmap.height;
+    const orientedW=rotated?bitmap.height:bitmap.width, orientedH=rotated?bitmap.width:bitmap.height;
+    const frame=frameBounds(orientedW,orientedH,job.photo.frame);
+    const naturalW=frame.width, naturalH=frame.height;
     const previewScale=Math.min(1,1200/Math.max(naturalW,naturalH));
     const width=job.mode==='inspect'?Math.max(1,Math.round(naturalW*previewScale)):(job.width ?? naturalW);
     const height=job.mode==='inspect'?Math.max(1,Math.round(naturalH*previewScale)):(job.height ?? naturalH);
@@ -31,7 +34,7 @@ self.onmessage=async (event: MessageEvent<ImageJob>)=> {
     if(!ctx)throw new Error('Canvas processing is unavailable in this browser.');
     stage('Drawing pixels…');
     if(job.mode==='pdf' || (job.mime==='image/jpeg' && job.mode==='export')) {ctx.fillStyle='#ffffff';ctx.fillRect(0,0,width,height);}
-    ctx.save();ctx.translate(width/2,height/2);ctx.scale(width/naturalW,height/naturalH);ctx.rotate(job.photo.turns*Math.PI/2);ctx.scale(job.photo.flip?-1:1,1);
+    ctx.save();ctx.scale(width/frame.width,height/frame.height);ctx.translate(-frame.x,-frame.y);ctx.translate(orientedW/2,orientedH/2);ctx.rotate(job.photo.turns*Math.PI/2);ctx.scale(job.photo.flip?-1:1,1);
     ctx.drawImage(bitmap,-bitmap.width/2,-bitmap.height/2);ctx.restore();
     stage('Encoding and removing metadata…');
     const mime=job.mode==='inspect'?'image/png':job.mode==='pdf'?'image/jpeg':job.mime;

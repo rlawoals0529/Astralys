@@ -62,6 +62,79 @@ test('unsupported, malformed, animated and dimension bomb inputs fail honestly t
 test('size boundary is checked before decode',async({page})=>{
  await page.locator('#file-input').setInputFiles({name:'huge.png',mimeType:'image/png',buffer:Buffer.alloc(20*1024*1024+1)});await expect(page.locator('#status')).toContainText('20 MiB');await expect(page.locator('#workspace')).toBeHidden();
 });
+test('center framing updates preview, exports only selected pixels, and keeps history undoable',async({page})=>{
+ const pixels=await page.evaluate(async()=>{
+  const canvas=document.createElement('canvas');canvas.width=8;canvas.height=4;
+  const ctx=canvas.getContext('2d')!;
+  ctx.fillStyle='#ff0000';ctx.fillRect(0,0,2,4);
+  ctx.fillStyle='#00ff00';ctx.fillRect(2,0,4,4);
+  ctx.fillStyle='#0000ff';ctx.fillRect(6,0,2,4);
+  const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('fixture failed')),'image/png'));
+  return Array.from(new Uint8Array(await blob.arrayBuffer()));
+ });
+ await load(page,'color-bands.png','image/png',Buffer.from(pixels));
+ await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
+ const before=await page.locator('#preview').getAttribute('src');
+ await page.locator('#frame-select').selectOption('square');
+ await page.getByRole('button',{name:'Apply crop'}).click();
+ await expect(page.locator('#cancel')).toBeHidden();
+ await expect(page.locator('#width')).toHaveValue('4');
+ await expect(page.locator('#height')).toHaveValue('4');
+ await expect(page.locator('#file-details')).toContainText('8 × 4');
+ await expect(page.locator('#preview')).not.toHaveAttribute('src',before!);
+ await page.locator('#format').selectOption('image/png');
+ await page.getByRole('button',{name:'Create image'}).click();
+ await expect(page.locator('#download')).toBeVisible();
+ const pending=page.waitForEvent('download');await page.getByRole('link',{name:'Download image'}).click();
+ const download=await pending;const bytes=await readFile((await download.path())!);
+ expect(inspect(bytes)).toMatchObject({width:4,height:4,metadata:[]});
+ const pixel=await page.evaluate(async data=>{
+  const bitmap=await createImageBitmap(new Blob([new Uint8Array(data)],{type:'image/png'}));
+  const canvas=document.createElement('canvas');canvas.width=4;canvas.height=4;
+  const ctx=canvas.getContext('2d')!;ctx.drawImage(bitmap,0,0);bitmap.close();
+  return Array.from(ctx.getImageData(0,0,1,1).data);
+ },Array.from(bytes));
+ expect(pixel).toEqual([0,255,0,255]);
+ await page.getByRole('button',{name:'Create PDF',exact:true}).click();
+ const pdfLink=page.waitForEvent('download');await page.getByRole('link',{name:'Download PDF'}).click();
+ const pdf=await pdfLink;const pdfBytes=await readFile((await pdf.path())!);
+ expect(pdfBytes.toString('latin1')).toContain('/MediaBox [0 0 3 3]');
+ await page.getByRole('button',{name:'Undo',exact:true}).click();
+ await expect(page.locator('#frame-select')).toHaveValue('original');
+ await expect(page.locator('#width')).toHaveValue('8');
+ await expect(page.locator('#height')).toHaveValue('4');
+ await page.locator('#frame-select').selectOption('portrait');
+ await page.getByRole('button',{name:'Apply crop'}).click();
+ await expect(page.locator('#width')).toHaveValue('3');
+ await expect(page.locator('#height')).toHaveValue('4');
+ await page.getByRole('button',{name:'Rotate 90°'}).click();
+ await expect(page.locator('#width')).toHaveValue('4');
+ await expect(page.locator('#height')).toHaveValue('5');
+ await page.getByRole('button',{name:'Reset original'}).click();
+ await expect(page.locator('#frame-select')).toHaveValue('original');
+ await expect(page.locator('#width')).toHaveValue('8');
+ await expect(page.locator('#height')).toHaveValue('4');
+});
+
+test('cancelling crop reverts its preset and preserves the original preview',async({page})=>{
+ await load(page);await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
+ const before=await page.locator('#preview').getAttribute('src');
+ await page.route('**/assets/image.worker-*.js',route=>route.fulfill({contentType:'text/javascript',body:'self.onmessage=()=>{}'}));
+ await page.locator('#frame-select').selectOption('square');
+ await page.getByRole('button',{name:'Apply crop'}).click();
+ await expect(page.locator('#cancel')).toBeVisible();
+ await page.locator('#cancel').click();
+ await expect(page.locator('#frame-select')).toHaveValue('original');
+ await expect(page.locator('#width')).toHaveValue('8');
+ await expect(page.locator('#height')).toHaveValue('4');
+ await expect(page.locator('#preview')).toHaveAttribute('src',before!);
+ await expect(page.getByRole('button',{name:'Undo',exact:true})).toBeDisabled();
+ await page.unroute('**/assets/image.worker-*.js');
+ await page.locator('#frame-select').selectOption('square');
+ await page.getByRole('button',{name:'Apply crop'}).click();
+ await expect(page.locator('#cancel')).toBeHidden();
+ await expect(page.locator('#width')).toHaveValue('4');
+});
 test('photo dimensions restore on undo and reset',async({page})=>{
  await load(page);await page.getByRole('button',{name:'Open in Photo',exact:true}).click();await page.getByRole('button',{name:'Rotate 90°'}).click();await expect(page.locator('#width')).toHaveValue('4');await expect(page.locator('#height')).toHaveValue('8');await expect(page.locator('#cancel')).toBeHidden();
  await page.getByRole('button',{name:'Undo',exact:true}).click();await expect(page.locator('#width')).toHaveValue('8');await expect(page.locator('#height')).toHaveValue('4');await expect(page.locator('#cancel')).toBeHidden();

@@ -10,7 +10,7 @@ A local-first creative workspace: start with a file, find a useful next action, 
 - Dedicated worker for bounded still-image decode, resize and PNG/JPEG/WebP export.
 - Metadata-container inspection and pixel re-encoding with removal of EXIF/XMP/comments and other supported ancillary metadata. This is not anonymization; visible information remains.
 - Single-page image-to-PDF export in the same worker: JPEG compression, white background, no searchable text. Existing PDFs are not opened.
-- Photo foundation: rotate, horizontal flip, undo, reset and export, without modifying the source File.
+- Photo workspace: rotate, horizontal flip, center-crop to square/portrait/classic/widescreen ratios, undo, reset and export, without modifying the source File. Framing is computed in the current orientation and applied to both image and single-page PDF output.
 - Cancellation, worker timeouts, URL revocation, malformed/unsupported/oversized-file errors and recovery.
 - Local-only Media Link classification. YouTube and all remote fetching remain gated.
 - Keyboard-operable controls, focus styles, status announcements and reduced-motion styling.

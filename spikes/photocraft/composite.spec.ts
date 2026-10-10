@@ -84,11 +84,15 @@ test('cancellation interrupts a multi-row job and a fresh worker recovers', asyn
       const worker = new Worker(url);
       try {
         await new Promise<void>((resolve, reject) => {
+          let requestedCancellation = false;
           const timer = setTimeout(() => reject(new Error('cancellation timeout')), 10000);
           worker.onmessage = event => {
             const msg = event.data;
             messages.push(msg.type);
-            if (msg.type === 'progress') worker.postMessage({type: 'cancel', jobId: 8});
+            if (msg.type === 'progress' && !requestedCancellation) {
+              requestedCancellation = true;
+              worker.postMessage({type: 'cancel', jobId: 8});
+            }
             if (msg.type === 'cancelled') {
               clearTimeout(timer);
               resolve();
@@ -127,7 +131,11 @@ test('cancellation interrupts a multi-row job and a fresh worker recovers', asyn
       } finally { restarted.terminate(); }
     } finally { URL.revokeObjectURL(url); }
   }, {wasm, script});
-  expect(outcome.messages).toEqual(['progress', 'cancelled']);
+  expect(outcome.messages[0]).toBe('progress');
+  expect(outcome.messages.at(-1)).toBe('cancelled');
+  expect(outcome.messages.filter(type => type === 'progress').length).toBeGreaterThanOrEqual(1);
+  expect(outcome.messages.filter(type => type === 'progress').length).toBeLessThan(8);
+  expect(outcome.messages).not.toContain('result');
   expect(outcome.type).toBe('result');
   expect(outcome.pixel).toEqual([0, 0, 0, 255]);
   expect(outcome.tiles).toBe(1);

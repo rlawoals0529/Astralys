@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { inspect } from '../src/core/files';
 import { png, chunk } from '../tests/fixtures';
 async function load(page: import('@playwright/test').Page,name='source.png',mime='image/png',bytes=png()) {await page.locator('#file-input').setInputFiles({name,mimeType:mime,buffer:bytes});await expect(page.locator('#workspace')).toBeVisible();await expect(page.locator('#cancel')).toBeHidden();}
-test.beforeEach(async({page})=>{const response=await page.goto('/',{waitUntil:'domcontentloaded'});expect(response?.ok()).toBe(true);await expect(page.locator('html')).toHaveAttribute('data-app-ready','true');});
+test.beforeEach(async({page})=>{const response=await page.goto('/',{waitUntil:'commit'});expect(response?.ok()).toBe(true);await expect(page.locator('html')).toHaveAttribute('data-app-ready','true');});
 test('original sample opens and the Photo workspace fits desktop and mobile',async({page},testInfo)=>{
  await page.screenshot({path:testInfo.outputPath('home-desktop.png'),fullPage:true});
  await page.locator('#sample').click();await expect(page.locator('#workspace')).toBeVisible();await expect(page.locator('#cancel')).toBeHidden();

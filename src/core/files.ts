@@ -100,7 +100,7 @@ export function inspect(a: Uint8Array, name = '', declared = ''): ImageInfo {
       if (c.type === 'VP8L') { if (c.size < 5 || a[i] !== 47) fail(); const bits = d.getUint32(i+1,true); const w = (bits & 16383) + 1, h = ((bits >>> 14) & 16383) + 1; checkDimensions(w,h); if(width && (width!==w || height!==h)) fail(); width=w; height=h; }
       if (['EXIF','XMP ','ICCP'].includes(c.type)) metadata.push(c.type.trim());
     }
-  } else if (mime === 'application/pdf') return fail('PDF detected. PDF tools are planned; this file has not been opened or uploaded.');
+  } else if (mime === 'application/pdf') return fail('PDF detected. existing PDF editing is not supported. This file has not been opened or uploaded.');
   else return fail('This format is not supported yet. Choose a still PNG, JPEG or WebP image. SVG is not opened.');
   checkDimensions(width, height);
   return { mime, width, height, metadata: [...new Set(metadata)], warning: mismatch(mime, name, declared) };
@@ -121,10 +121,10 @@ export function stripEncodedMetadata(a: Uint8Array, mime: ImageMime): Uint8Array
   if(mime==='image/webp') view(result).setUint32(4,result.length-8,true);
   return result;
 }
-export function safeName(name: string, mime: ImageMime): string {
+export function safeName(name: string, mime: ImageMime | 'application/pdf'): string {
   const stem = name.replace(/\.[^.]*$/, '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0,80) || 'image';
   return `${stem}-astralys.${mime === 'image/jpeg' ? 'jpg' : mime.split('/')[1]}`;
 }
 export function suggestedActions(mime: ImageMime) {
-  return ['Open in Photo', mime === 'image/webp' ? 'Convert to PNG' : 'Convert to WebP', 'Resize', 'Remove metadata'] as const;
+  return ['Open in Photo', mime === 'image/webp' ? 'Convert to PNG' : 'Convert to WebP', 'Resize', 'Remove metadata', 'Convert to PDF'] as const;
 }

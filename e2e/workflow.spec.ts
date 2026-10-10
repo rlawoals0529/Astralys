@@ -87,3 +87,15 @@ test('small supporting text meets normal-text contrast',async({page})=>{
  });
  expect(ratios.length).toBeGreaterThan(5);for(const result of ratios)expect(result.ratio,result.text).toBeGreaterThanOrEqual(4.5);
 });
+test('exports a real local single-page PDF while preserving the image preview',async({page})=>{
+ await load(page);const preview=await page.locator('#preview').getAttribute('src');
+ await page.locator('#width').fill('4');await page.getByRole('button',{name:'Create PDF',exact:true}).click();
+ await expect(page.locator('#status')).toContainText('single-page PDF');await expect(page.locator('#result-title')).toHaveText('Your PDF is ready.');
+ await expect(page.locator('#preview')).toHaveAttribute('src',preview!);
+ const pending=page.waitForEvent('download');await page.getByRole('link',{name:'Download PDF'}).click();const download=await pending;
+ expect(download.suggestedFilename()).toBe('source-astralys.pdf');const bytes=await readFile((await download.path())!);const text=bytes.toString('latin1');
+ expect(text.startsWith('%PDF-1.4')).toBe(true);expect(text).toContain('/MediaBox [0 0 3 1.5]');expect(text).toContain('/Count 1');expect(text).not.toContain('PRIVATE');
+ const jpegStart=text.indexOf('stream\n',text.indexOf('4 0 obj'))+7;const length=Number(text.slice(text.indexOf('4 0 obj'),jpegStart).match(/\/Length (\d+)/)![1]);
+ expect(inspect(bytes.subarray(jpegStart,jpegStart+length)).metadata).toEqual([]);
+ await page.getByRole('button',{name:'Convert to PDF',exact:true}).click();await expect(page.locator('#cancel')).toBeHidden();await expect(page.locator('#download')).toBeVisible();
+});

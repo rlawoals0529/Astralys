@@ -13,7 +13,7 @@ describe('untrusted input boundaries',()=>{
  it('rejects APNG',()=>{const p=png();expect(()=>inspect(Buffer.concat([p.subarray(0,33),chunk('acTL',Buffer.alloc(8)),p.subarray(33)]))).toThrow('Animated PNG');});
  it('removes PNG metadata without echoing values',()=>{const output=stripEncodedMetadata(png(),'image/png');expect(inspect(output).metadata).toEqual([]);expect(Buffer.from(output).includes(Buffer.from('PRIVATE'))).toBe(false);expect(inspect(output).width).toBe(8);});
  it('sanitizes names to bounded basenames with actual extension',()=>{const n=safeName('../../<img onerror=alert(1)>\u202E.exe','image/png');expect(n).toMatch(/^[a-zA-Z0-9_-]+\.png$/);expect(n).not.toContain('..');expect(safeName('x'.repeat(500)+'.jpg','image/jpeg').length).toBeLessThan(100);});
- it('only suggests implemented actions',()=>expect(suggestedActions('image/png')).toEqual(['Open in Photo','Convert to WebP','Resize','Remove metadata']));
+ it('only suggests implemented actions',()=>expect(suggestedActions('image/png')).toEqual(['Open in Photo','Convert to WebP','Resize','Remove metadata','Convert to PDF']));
 });
 
 function riff(chunks: [string,Uint8Array][]) {

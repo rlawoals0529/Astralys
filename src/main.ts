@@ -13,27 +13,27 @@ let file: File | undefined, info: ImageInfo | undefined, requestId=0, busy=false
 const status=(message:string,error=false)=> {el('status').textContent=message;el('status-row').classList.toggle('error',error);};
 const input=(id:string)=>el<HTMLInputElement>(id);
 function clearOutput() {outputUrl.clear();el('result').hidden=true;el('download').removeAttribute('href');}
-function setBusy(value:boolean) {busy=value;el('cancel').hidden=!value;el('progress').hidden=!value;el('workspace').setAttribute('aria-busy',String(value));for(const field of document.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLButtonElement>('#export-form input, #export-form select, #suggestions button'))field.disabled=value;for(const id of ['export','rotate','flip','reset','sample']) el<HTMLButtonElement>(id).disabled=value;el<HTMLButtonElement>('undo').disabled=value||!history.canUndo;}
-function settings(mode:'inspect'|'export'): ImageJob {
+function setBusy(value:boolean) {busy=value;el('cancel').hidden=!value;el('progress').hidden=!value;el('workspace').setAttribute('aria-busy',String(value));for(const field of document.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLButtonElement>('#export-form input, #export-form select, #suggestions button'))field.disabled=value;for(const id of ['export','pdf-export','rotate','flip','reset','sample']) el<HTMLButtonElement>(id).disabled=value;el<HTMLButtonElement>('undo').disabled=value||!history.canUndo;}
+function settings(mode:'inspect'|'export'|'pdf'): ImageJob {
   if(!file) throw new Error('Choose an image first.');
   const width=Number(input('width').value),height=Number(input('height').value);
-  if(mode==='export')checkDimensions(width,height);
-  return {file,mode,mime:el<HTMLSelectElement>('format').value as ImageMime,width:mode==='export'?width:undefined,height:mode==='export'?height:undefined,quality:Number(input('quality').value)/100,photo:history.current};
+  if(mode!=='inspect')checkDimensions(width,height);
+  return {file,mode,mime:el<HTMLSelectElement>('format').value as ImageMime,width:mode!=='inspect'?width:undefined,height:mode!=='inspect'?height:undefined,quality:Number(input('quality').value)/100,photo:history.current};
 }
-async function process(mode:'inspect'|'export') {
+async function process(mode:'inspect'|'export'|'pdf') {
   const id=++requestId; runner.cancel(); clearOutput();setBusy(true);
   try {
     const result=await runner.run<ImageResult>(settings(mode),s=> {if(id===requestId)status(s);});
     if(id!==requestId)return;
     info=result.info;
-    el<HTMLImageElement>('preview').src=previewUrl.set(result.blob);
+    if(mode!=='pdf')el<HTMLImageElement>('preview').src=previewUrl.set(result.blob);
     if(mode==='inspect') {
       input('width').value=String(result.width);input('height').value=String(result.height);ratio=result.width/result.height;
       rollback=undefined;renderFile();status('Image ready. Choose an action or adjust your export.');
     } else {
-      const link=el<HTMLAnchorElement>('download');link.href=outputUrl.set(result.blob);link.download=safeName(file!.name,result.blob.type as ImageMime);
+      const link=el<HTMLAnchorElement>('download');link.href=outputUrl.set(result.blob);link.download=safeName(file!.name,result.blob.type as ImageMime|'application/pdf');
       el('result-info').textContent=`${result.width} × ${result.height} · ${formatBytes(result.blob.size)} · ${result.blob.type.split('/')[1].toUpperCase()}. Original file unchanged.`;
-      el('result').hidden=false;status('Your image is ready to download.');link.focus();
+      el('result-title').textContent=mode==='pdf'?'Your PDF is ready.':'Your image is ready.';link.textContent=mode==='pdf'?'Download PDF ↓':'Download image ↓';el('result').hidden=false;status(mode==='pdf'?'Your single-page PDF is ready to download.':'Your image is ready to download.');link.focus();
     }
   } catch(error) {if(id!==requestId)return;rollback?.();rollback=undefined;status(error instanceof Error?error.message:'Unable to process this image.',!(error instanceof DOMException && error.name==='AbortError'));}
   finally {if(id===requestId)setBusy(false);}
@@ -50,6 +50,7 @@ function renderFile() {
   for(const action of suggestedActions(info.mime)) {const b=document.createElement('button');b.textContent=action;b.type='button';b.onclick=()=> {
     if(busy)return;
     if(action==='Open in Photo'){showPhoto();return;}
+    if(action==='Convert to PDF'){void process('pdf');return;}
     if(action==='Resize'){input('width').focus();return;}
     el<HTMLSelectElement>('format').value=action==='Remove metadata'?info!.mime:action==='Convert to PNG'?'image/png':'image/webp';updateFormat();void process('export');
   };list.append(b);}
@@ -78,6 +79,7 @@ window.addEventListener('dragover',e=>e.preventDefault());window.addEventListene
 el('cancel').onclick=()=>{++requestId;runner.cancel();rollback?.();rollback=undefined;setBusy(false);status('Cancelled. Your original file is unchanged.');};
 el('clear').onclick=()=>{clearSession();el('choose-file').focus();};
 el('export-form').onsubmit=e=>{e.preventDefault();if(!busy)void process('export');};
+el('pdf-export').onclick=()=>{if(!busy)void process('pdf');};
 el('format').onchange=()=>{clearOutput();updateFormat();};
 input('quality').oninput=()=>{el('quality-value').textContent=input('quality').value;clearOutput();};
 for(const [changed,other] of [['width','height'],['height','width']])input(changed).oninput=()=> {clearOutput();if(input('aspect').checked){const n=Number(input(changed).value);if(Number.isFinite(n)&&n>0)input(other).value=String(Math.max(1,Math.round(changed==='width'?n/ratio:n*ratio)));}};
@@ -86,7 +88,7 @@ function inputTab(link:boolean) {el('file-entry').hidden=link;el('link-entry').h
 el('file-tab').onclick=()=>inputTab(false);el('link-tab').onclick=()=>inputTab(true);
 el('link-entry').onsubmit=e=>{e.preventDefault();const result=el('link-result');result.replaceChildren();result.hidden=false;try{const c=classifyMediaLink(input('media-url').value);const heading=document.createElement('h2'),body=document.createElement('p');heading.textContent=c.title;body.textContent=c.message;result.append(heading,body);}catch(error){result.textContent=(error as Error).message;}};
 el('privacy-button').onclick=()=>{el('privacy-panel').hidden=!el('privacy-panel').hidden;};el('close-privacy').onclick=()=>{el('privacy-panel').hidden=true;el('privacy-button').focus();};
-const categories: Record<string,[string,string]>={images:['Image tools, ready here.','Convert, resize, remove metadata, or make simple Photo adjustments. PNG, JPEG and WebP stay on your device.'],video:['Video is on the roadmap.','Transcoding, trimming and audio extraction are not available in this build. No video file is opened or uploaded.'],audio:['Audio is on the roadmap.','Local audio conversion will follow codec and distribution review. No audio processor is loaded.'],pdf:['PDF tools are being designed.','Merge, split and image-to-PDF are planned. This build does not open, render or modify PDFs.'],documents:['Documents are on the roadmap.','Office document conversion is not supported yet. Files are never uploaded as a fallback.'],archives:['Archive tools are on the roadmap.','Extraction will require path, file-count and expanded-size protections. No archive extraction is available now.'],data:['Data tools are on the roadmap.','CSV and JSON inspection and conversion are planned. No data parsing is available in this build.'],creative:['Photo studio · a small beginning.','Open an image for rotation, flipping and non-destructive reset. Layers, drawing, PSD and other editors are future work.']};
+const categories: Record<string,[string,string]>={images:['Image tools, ready here.','Convert, resize, remove metadata, or make simple Photo adjustments. PNG, JPEG and WebP stay on your device.'],video:['Video is on the roadmap.','Transcoding, trimming and audio extraction are not available in this build. No video file is opened or uploaded.'],audio:['Audio is on the roadmap.','Local audio conversion will follow codec and distribution review. No audio processor is loaded.'],pdf:['One image, one PDF.','Choose a PNG, JPEG or WebP image, then create a single-page PDF locally. JPEG compression and a white background are used. This build does not open, render, merge or modify existing PDFs.'],documents:['Documents are on the roadmap.','Office document conversion is not supported yet. Files are never uploaded as a fallback.'],archives:['Archive tools are on the roadmap.','Extraction will require path, file-count and expanded-size protections. No archive extraction is available now.'],data:['Data tools are on the roadmap.','CSV and JSON inspection and conversion are planned. No data parsing is available in this build.'],creative:['Photo studio · a small beginning.','Open an image for rotation, flipping and non-destructive reset. Layers, drawing, PSD and other editors are future work.']};
 for(const button of document.querySelectorAll<HTMLButtonElement>('[data-category]')) button.onclick=()=> {
   for(const b of document.querySelectorAll('[data-category]')){b.classList.remove('active');b.removeAttribute('aria-current');}button.classList.add('active');button.setAttribute('aria-current','page');
   const c=button.dataset.category!;const detail=categories[c];el('category-panel').hidden=!detail;

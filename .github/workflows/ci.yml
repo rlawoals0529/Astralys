@@ -63,3 +63,31 @@ jobs:
           retention-days: 7
       - run: cargo install cargo-audit --version 0.22.2 --locked
       - run: cargo audit --file spikes/photocraft/Cargo.lock --deny warnings
+
+  memory-harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.19.0'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium firefox
+      - name: Exercise local browser memory workloads
+        run: |
+          npm run preview > /tmp/astralys-preview.log 2>&1 &
+          ASTRALYS_MEMORY_RUNS=1 node scripts/measure-browser-memory.mjs > /tmp/astralys-memory.json
+          cat /tmp/astralys-memory.json
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: memory-harness-evidence
+          path: |
+            /tmp/astralys-memory.json
+            /tmp/astralys-preview.log
+          retention-days: 7

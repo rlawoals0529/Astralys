@@ -5,7 +5,7 @@
  * Run `node scripts/measure-browser-memory.mjs` after Playwright browsers are installed.
  * No input files, traces, or telemetry leave this machine.
  */
-import { chromium } from '@playwright/test';
+import { chromium, firefox } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { setInterval as every } from 'node:timers';
@@ -13,6 +13,10 @@ import { setInterval as every } from 'node:timers';
 const baseURL = process.env.ASTRALYS_BASE_URL ?? 'http://127.0.0.1:4173';
 const iterations = Number(process.env.ASTRALYS_MEMORY_RUNS ?? 5);
 const sampleIntervalMs = 100;
+const browserNames = (process.env.ASTRALYS_MEMORY_BROWSERS ?? 'chromium,firefox').split(',').map(x => x.trim());
+if (browserNames.length === 0 || browserNames.some(x => !['chromium', 'firefox'].includes(x))) {
+  throw new Error('ASTRALYS_MEMORY_BROWSERS must contain chromium and/or firefox');
+}
 if (!Number.isSafeInteger(iterations) || iterations < 1 || iterations > 30) {
   throw new Error('ASTRALYS_MEMORY_RUNS must be an integer between 1 and 30');
 }
@@ -61,8 +65,9 @@ function sampleProcessTree(pid) {
 }
 
 const results = [];
+for (const browserName of browserNames) {
 for (let run = 1; run <= iterations; run++) {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await ({chromium, firefox})[browserName].launch({ headless: true });
   try {
     const page = await browser.newPage();
     await page.goto(baseURL, { waitUntil: 'networkidle' });
@@ -94,7 +99,7 @@ for (let run = 1; run <= iterations; run++) {
     const afterReload = totalRss(browser.process().pid);
     const sampled = sampling.stop();
     results.push({
-      run, browser: browser.version(), baselineRssBytes: baseline, ...sampled,
+      run, browserName, browserVersion: browser.version(), baselineRssBytes: baseline, ...sampled,
       afterExportRssBytes: afterExport, afterClearRssBytes: afterClear, afterReloadRssBytes: afterReload,
       elapsedMs: Math.round(performance.now() - started),
       note: 'Local Astralys 1024px PNG export; sampled peak is interval-dependent, not a hard memory ceiling.'
@@ -102,5 +107,6 @@ for (let run = 1; run <= iterations; run++) {
   } finally {
     await browser.close();
   }
+}
 }
 console.log(JSON.stringify({ commit: process.env.GITHUB_SHA ?? 'local', platform: process.platform, results }, null, 2));

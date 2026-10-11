@@ -34,3 +34,14 @@ With Node 24, the project's locked dependencies and Playwright Chromium installe
 The opt-in script now exercises Chromium and Firefox, single-image PNG and PDF output, eight-image PDF composition, a best-effort cancellation attempt during PDF composition, and a fresh composition after cancellation. All operations are local and use generated non-private PNG fixtures. CI's regular `check` job does not run this script: a green CI result is **not** evidence that the performance harness passed. Run the sampler manually with a local preview, record the complete stdout and environment, and investigate any failure before treating results as performance evidence. Sampled RSS excludes processes outside the launched browser's descendant tree and may miss spikes between samples.
 
 **Cancellation caveat:** PDF composition can complete before the cancel control is reached. This sampler does not claim deterministic cancellation coverage or worker interception; a separate controlled cancellation test is needed to establish that behavior. Treat any timeout waiting for `#pdf-cancel` as a test-design failure to investigate, not as a memory measurement.
+
+## First automated smoke run (2026-10-11)
+
+GitHub Actions [run 38180203501](https://github.com/rlawoals0529/Astralys/actions/runs/38180203501), commit `cc24980`, executed **one iteration per browser** on Linux. These are summed browser-process-tree RSS values, not tab heap or device memory limits:
+
+| Browser | Baseline RSS | Sampled peak RSS | After reload RSS | Samples |
+| --- | ---: | ---: | ---: | ---: |
+| Chromium 151 | 459.1 MiB | 582.7 MiB | 549.9 MiB | 36 |
+| Firefox 153 | 719.0 MiB | 850.0 MiB | 819.5 MiB | 38 |
+
+The smoke run passed, including a PDF cancellation attempt and subsequent composition. One iteration cannot establish a regression threshold, leak, stable plateau, or deterministic cancellation. Run at least five fresh-browser iterations per browser before drawing comparative conclusions. The full JSON is retained as the `memory-harness-evidence` CI artifact (subject to GitHub retention).

@@ -788,3 +788,27 @@ test('scoped decode survives mismatched declared MIME and preserves local-only d
  await expect(page.locator('#preview')).not.toHaveAttribute('src',/blob:/);
  await expect(page.locator('#download')).not.toHaveAttribute('href',/blob:/);
 });
+
+test('16MP original export is rejected by raster admission and a smaller preset safely recovers',async({page})=>{
+ const large=png(4000,4000,false);
+ await load(page,'high-resolution.png','image/png',large);
+ await expect(page.locator('#width')).toHaveValue('4000');
+ await expect(page.locator('#height')).toHaveValue('4000');
+ await expect(page.locator('#size-preset')).toHaveValue('original');
+ await page.getByRole('button',{name:'Create image'}).click();
+ await expect(page.locator('#status')).toContainText('too much decoded pixel memory');
+ await expect(page.locator('#cancel')).toBeHidden();
+ await expect(page.locator('#result')).toBeHidden();
+ await page.locator('#size-preset').selectOption('long-800');
+ await expect(page.locator('#width')).toHaveValue('800');
+ await expect(page.locator('#height')).toHaveValue('800');
+ await page.locator('#format').selectOption('image/png');
+ await page.getByRole('button',{name:'Create image'}).click();
+ await expect(page.locator('#download')).toBeVisible();
+ const waiting=page.waitForEvent('download');
+ await page.getByRole('link',{name:'Download image'}).click();
+ const out=await readFile((await (await waiting).path())!);
+ expect(inspect(out)).toMatchObject({mime:'image/png',width:800,height:800,metadata:[]});
+ await page.getByRole('button',{name:'Clear file'}).click();
+ await expect(page.locator('#workspace')).toBeHidden();
+});

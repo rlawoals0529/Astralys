@@ -650,3 +650,102 @@ test('mobile preset controls and redaction inputs remain keyboard accessible',as
  await expect(page.locator('#redact-x')).toHaveValue('20');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+test('all disposable image workers terminate and all Blob URLs are revoked after explicit clear',async({page},testInfo)=>{
+ await page.evaluate(()=>{
+   const nativeWorker=window.Worker;
+   const realCreate=URL.createObjectURL.bind(URL),realRevoke=URL.revokeObjectURL.bind(URL);
+   const tracked={active:0,maxConcurrent:0,workersStarted:0,created:0,revoked:0,live:new Set<string>()};
+   class ObservedWorker extends nativeWorker {
+     private released=false;
+     constructor(url:string|URL,options?:WorkerOptions) {
+       super(url,options);
+       tracked.active++;tracked.workersStarted++;
+       tracked.maxConcurrent=Math.max(tracked.maxConcurrent,tracked.active);
+     }
+     override terminate(){
+       if(!this.released){this.released=true;tracked.active--;}
+       super.terminate();
+     }
+   }
+   window.Worker=ObservedWorker;
+   URL.createObjectURL=(blob:Blob|MediaSource)=>{
+     const url=realCreate(blob);tracked.created++;tracked.live.add(url);return url;
+   };
+   URL.revokeObjectURL=(url:string)=>{
+     tracked.revoked++;tracked.live.delete(url);realRevoke(url);
+   };
+   Object.assign(window,{__qaResourceTracker:tracked});
+ });
+ const snapshot=()=>page.evaluate(()=>{
+   const t=(window as typeof window & {__qaResourceTracker:{active:number;maxConcurrent:number;workersStarted:number;created:number;revoked:number;live:Set<string>}}).__qaResourceTracker;
+   return {active:t.active,maxConcurrent:t.maxConcurrent,workersStarted:t.workersStarted,created:t.created,revoked:t.revoked,live:t.live.size};
+ });
+ const initial=await snapshot();expect(initial.active).toBe(0);expect(initial.live).toBe(0);
+ const began=Date.now();
+ await load(page,'photo.png','image/png',png(400,300,false));
+ await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
+ await page.getByRole('button',{name:'Rotate 90°'}).click();
+ await expect(page.locator('#cancel')).toBeHidden();
+ await page.getByRole('button',{name:'Create image'}).click();
+ await expect(page.locator('#download')).toBeVisible();
+ const edited=await snapshot();
+ expect(edited.active).toBe(0);expect(edited.live).toBe(3);
+ await page.getByRole('button',{name:'Clear file'}).click();
+ const cleared=await snapshot();
+ expect(cleared.active).toBe(0);expect(cleared.live).toBe(0);
+ await page.locator('#batch-files').setInputFiles([
+   {name:'one.png',mimeType:'image/png',buffer:png(400,300,false)},
+   {name:'two.png',mimeType:'image/png',buffer:png(320,240,false)}
+ ]);
+ await page.getByRole('button',{name:'Convert selected'}).click();
+ await expect(page.locator('#batch-status')).toContainText('2 ready, 0 failed');
+ const batch=await snapshot();
+ expect(batch.active).toBe(0);expect(batch.live).toBe(2);
+ await page.getByRole('button',{name:'Clear results'}).click();
+ const final=await snapshot();
+ expect(final.active).toBe(0);expect(final.live).toBe(0);
+ expect(final.maxConcurrent).toBe(1);
+ expect(final.workersStarted).toBeGreaterThanOrEqual(5);
+ expect(final.created).toBe(final.revoked);
+ await testInfo.attach('local-resource-lifecycle.json',{body:JSON.stringify({
+   fixture:'Synthetic 400x300 and 320x240 PNGs; no real user media',
+   initial,edited,cleared,batch,final,elapsedMs:Date.now()-began,
+   caveat:'Counts observable Worker instances and Object URLs in this page, not renderer/native process RSS or garbage collection'
+ },null,2),contentType:'application/json'});
+});
+
+test('privacy details and keyboard-alternative redaction remain labelled and mobile accessible',async({page})=>{
+ const control=page.locator('#privacy-button');
+ await expect(control).toHaveAttribute('aria-controls','privacy-panel');
+ await expect(control).toHaveAttribute('aria-expanded','false');
+ await control.focus();await page.keyboard.press('Enter');
+ await expect(control).toHaveAttribute('aria-expanded','true');
+ await expect(page.locator('#privacy-panel')).toBeVisible();
+ await page.getByRole('button',{name:'Close privacy details'}).click();
+ await expect(control).toHaveAttribute('aria-expanded','false');
+ await expect(page.locator('#privacy-panel')).toBeHidden();
+ await expect(control).toBeFocused();
+ await load(page);
+ await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
+ const x=page.locator('#redact-x');
+ await expect(x).toHaveAttribute('aria-describedby','redact-help');
+ await x.fill('0');await page.locator('#redact-y').fill('0');
+ await page.locator('#redact-width').fill('50');await page.locator('#redact-height').fill('50');
+ await page.locator('#redact-apply').focus();await page.keyboard.press('Enter');
+ await expect(page.locator('#redact-count')).toContainText('1 / 10');
+ await expect(page.locator('#cancel')).toBeHidden();
+ await page.getByRole('button',{name:'Undo',exact:true}).click();
+ await expect(page.locator('#redact-count')).toContainText('0 / 10');
+ await expect(page.locator('#cancel')).toBeHidden();
+ for(const width of [320,390,768,1280,1920]){
+   await page.setViewportSize({width,height:850});
+   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`horizontal overflow at ${width}px`).toBe(true);
+ }
+ await page.locator('#size-preset').focus();
+ await expect(page.locator('#size-preset')).toHaveAttribute('aria-describedby','size-preset-help');
+ await page.keyboard.press('Home');await page.keyboard.press('ArrowDown');
+ await expect(page.locator('#size-preset')).toHaveValue('long-2048');
+ await expect(page.locator('#size-preset-help')).toContainText('No upscaling');
+ expect(await page.evaluate(()=>document.activeElement?.id)).toBe('size-preset');
+});

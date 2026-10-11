@@ -1,6 +1,6 @@
 # Worker and Blob cleanup, keyboard accessibility, static-host readiness
 
-10 October 2026 UTC. **Automated evidence project:** private, no deployment. Use the exact feature CI run for results once complete. No user media, external collection, production dependency or application telemetry is introduced.
+10 October 2026 UTC. [PR #16](https://github.com/rlawoals0529/Astralys/pull/16), squash-merged as `f18ff5944ca72482fa75331683cc79467a1954df`. **Automated evidence project:** private, no deployment. Use the exact feature CI run for results once complete. No user media, external collection, production dependency or application telemetry is introduced.
 
 ## What is tested
 
@@ -18,4 +18,6 @@ Rights-cleared **real-photo tests** including EXIF rotation, embedded Display P3
 
 ## Verification
 
-CI outcome and exact counts: **pending**. Track the associated PR's production Chromium/Firefox, TypeScript, ESLint, license inventory, Vitest, PhotoCraft native/WASM/browser and pinned Rust audit jobs. Any failures should be fixed without suppressing tests.
+**Final feature CI [38103025212](https://github.com/rlawoals0529/Astralys/actions/runs/38103025212) passed both jobs.** Production: **78/78 Vitest tests (8 files)** and **68/68 Playwright Chromium/Firefox browser cases**; TypeScript, ESLint, Vite build, npm dependency audit (0 reported vulnerabilities), license inventory and Cloudflare static-bundle safety preflight passed. Isolated PhotoCraft: 10/10 browser cases, native Rust and WASM verification, and pinned Rust dependency audit passed. The offline static-host preflight inspected **7 generated files, 178,443 bytes and 2 JS assets**; no cloud publishing occurred.
+
+A separate pre-rebase feature branch also passed 76/76 unit and 64/64 browser cases; the final counts above include the earlier Cloudflare static-host tests integrated through PR #15. No claim is made that synthetic QA covers real photograph color management, process RSS or screen readers. Post-merge CI is independently tracked and must not be assumed green until completed.

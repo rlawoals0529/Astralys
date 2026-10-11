@@ -122,3 +122,15 @@
   .download{display:flex;align-items:center}
   .status-row{line-height:1.5}
 }
+
+/* Touch-safe local navigation and readable compact viewports. */
+@media(max-width:650px){
+  .sidebar nav{max-width:100%;-webkit-overflow-scrolling:touch}
+  .nav{flex-shrink:0}
+  .sidebar .brand{width:max-content;max-width:100%}
+  .input-tabs button{flex-shrink:0}
+  .file-heading,.batch-fields,.frame-actions{min-width:0}
+  .file-heading>*{min-width:0}
+  #link-entry{padding:18px}
+  .link-row .primary{justify-content:center}
+}

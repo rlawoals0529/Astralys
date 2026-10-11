@@ -27,6 +27,11 @@ try {
       const interactive = page.locator('#export-form');
       await interactive.scrollIntoViewIfNeeded();
       await page.screenshot({ path: `artifacts/design-preview/${viewport.name}-export.png`, animations: 'disabled' });
+      const horizontalClip = await page.evaluate(() => {
+        const rect = document.querySelector('#export-form')?.getBoundingClientRect();
+        return rect ? rect.left < -1 || rect.right > window.innerWidth + 1 : true;
+      });
+      if (horizontalClip) throw new Error(`${viewport.name}: export form extends outside viewport`);
       if (viewport.width <= 650) {
         const controls = page.locator('#export-form input, #export-form select, #export-form button');
         for (let i = 0; i < await controls.count(); i++) {

@@ -91,6 +91,8 @@ for (let run = 1; run <= iterations; run++) {
     await page.locator('#width').fill('1024');
     await page.getByRole('button',{name:'Create image'}).click();
     await page.locator('#download').waitFor({state:'visible'});
+    await page.getByRole('button',{name:'Create PDF',exact:true}).click();
+    await page.locator('#download').waitFor({state:'visible'});
     const afterExport = totalRss(browser.process().pid);
     await page.getByRole('button',{name:'Clear file'}).click();
     await page.locator('#workspace').waitFor({state:'hidden'});
@@ -102,7 +104,7 @@ for (let run = 1; run <= iterations; run++) {
       run, browserName, browserVersion: browser.version(), baselineRssBytes: baseline, ...sampled,
       afterExportRssBytes: afterExport, afterClearRssBytes: afterClear, afterReloadRssBytes: afterReload,
       elapsedMs: Math.round(performance.now() - started),
-      note: 'Local Astralys 1024px PNG export; sampled peak is interval-dependent, not a hard memory ceiling.'
+      note: 'Local Astralys 1024px PNG and single-page PDF exports; sampled peak is interval-dependent, not a hard memory ceiling.'
     });
   } finally {
     await browser.close();

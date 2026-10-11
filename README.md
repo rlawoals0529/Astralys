@@ -57,7 +57,7 @@ The command checks the local `dist` directory before invoking REA's static analy
 
 ## Limits
 
-Still PNG/JPEG/WebP only, 20 MiB per input, 16 million pixels, 8192 pixels per side, 4096 chunks/segments, one job at a time per editing or batch queue and a 30-second deadline per job. Output limit 64 MiB for individual exports or retained batch results; batch selection is capped at eight files and 48 MiB input. Tonal edits are capped at 4 million output pixels. A browser without OffscreenCanvas/createImageBitmap gets an explicit error. PNG is lossless but can increase file size; JPEG flattens transparency to white. Re-encoding can change color, orientation or details. Resize requests use browser canvas resampling; the high-quality hint is not a guarantee of uniform interpolation across browsers. JPEG/WebP quality is encoder-dependent; files are not guaranteed to become smaller. EXIF orientation and embedded ICC profiles are not retained by sanitized exports. No files survive reload; explicit downloads remain on the user's device.
+Still PNG/JPEG/WebP only, 20 MiB per input, 16 million pixels, 8192 pixels per side, 4096 chunks/segments, one job at a time per editing or batch queue and a 30-second deadline per job. Output limit 64 MiB for individual exports or retained batch results; batch selection is capped at eight files and 48 MiB input. Tonal edits are capped at 4 million output pixels. A **96 MiB estimated decoded-RGBA working-set admission budget** now rejects source/output size combinations that could consume excessive image buffers. This is not a browser-process RAM guarantee; large native-size exports may need a smaller preset. A browser without OffscreenCanvas/createImageBitmap gets an explicit error. PNG is lossless but can increase file size; JPEG flattens transparency to white. Re-encoding can change color, orientation or details. Resize requests use browser canvas resampling; the high-quality hint is not a guarantee of uniform interpolation across browsers. JPEG/WebP quality is encoder-dependent; files are not guaranteed to become smaller. EXIF orientation and embedded ICC profiles are not retained by sanitized exports. No files survive reload; explicit downloads remain on the user's device.
 
 No SVG rendering, existing-PDF modification, archives, audio/video conversion, remote fetcher, telemetry, login, persistence, DRM/access-control bypass or unreviewed WASM modules. Category surfaces explain planned capabilities; they do not claim to process those files.
 
@@ -77,7 +77,8 @@ TypeScript/Vite native DOM UI → typed action/file logic → disposable image w
 - [Export presets and fidelity verification](docs/reports/EXPORT_FIDELITY.md)
 - [Photo fidelity, memory and accessibility QA protocol](docs/quality/PHOTO_QA_PROTOCOL.md) — manual real-photo/AT/process-memory checks still open
 - [Automated worker, Blob cleanup and keyboard-accessibility evidence](docs/reports/QUALITY_LIFECYCLE.md)
-- [Cloudflare Workers static hosting readiness](docs/deployment/CLOUDFLARE_STATIC.md) — offline preflight only; no deployment or Cloudflare account access
+- [Cloudflare Workers static hosting readiness](docs/deployment/CLOUDFLARE_STATIC.md)
+- [Browser worker memory and optional R2 upload architecture](docs/architecture/UPLOADS_AND_WORKERS.md) — implemented local budget/release; remote upload remains disabled — offline preflight only; no deployment or Cloudflare account access
 - [Batch conversion, tone and opaque redaction verification](docs/reports/BATCH_TONE_REDACTION.md)
 - [Resume prompt for a new ChatGPT chat](docs/RESUME_PROMPT.md)
 

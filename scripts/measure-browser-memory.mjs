@@ -102,6 +102,15 @@ for (let run = 1; run <= iterations; run++) {
     const afterMultipagePdf = totalRss(browser.process().pid);
     await page.locator('#pdf-clear').click();
     await page.locator('#pdf-result').waitFor({state:'hidden'});
+    await page.locator('#pdf-page-files').setInputFiles(pages);
+    await page.route('**/assets/*worker*.js', route => route.fulfill({contentType:'text/javascript',body:'self.onmessage=()=>{}'}));
+    await page.locator('#pdf-compose').click();
+    await page.locator('#pdf-cancel').waitFor({state:'visible'});
+    await page.locator('#pdf-cancel').click();
+    await page.locator('#pdf-cancel').waitFor({state:'hidden'});
+    await page.locator('#pdf-result').waitFor({state:'hidden'});
+    await page.unroute('**/assets/*worker*.js');
+    const afterCancellation = totalRss(browser.process().pid);
     await page.getByRole('button',{name:'Clear file'}).click();
     await page.locator('#workspace').waitFor({state:'hidden'});
     const afterClear = totalRss(browser.process().pid);
@@ -111,9 +120,9 @@ for (let run = 1; run <= iterations; run++) {
     sampling = undefined;
     results.push({
       run, browserName, browserVersion: browser.version(), baselineRssBytes: baseline, ...sampled,
-      afterExportRssBytes: afterExport, afterMultipagePdfRssBytes: afterMultipagePdf, afterClearRssBytes: afterClear, afterReloadRssBytes: afterReload,
+      afterExportRssBytes: afterExport, afterMultipagePdfRssBytes: afterMultipagePdf, afterCancellationRssBytes: afterCancellation, afterClearRssBytes: afterClear, afterReloadRssBytes: afterReload,
       elapsedMs: Math.round(performance.now() - started),
-      note: 'Local image, single-page PDF and eight-page PDF exports; sampled peak is interval-dependent, not a hard memory ceiling.'
+      note: 'Local image, PDF, eight-page PDF and synthetic stalled-worker cancellation; sampled peak is not a hard memory ceiling.'
     });
   } finally {
     sampling?.stop();

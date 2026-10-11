@@ -36,6 +36,12 @@ npm run test:browser
 3. Only after explicit permission, use a reviewed pinned Wrangler tool and the **static-assets-only** configuration to publish. Verify resulting CSP, MIME types for module workers, no unexpected fallback routing, cache revalidation and source-map absence from the public endpoint.
 4. Keep server-side conversion / remote-link fetching separately gated, with provider rights, SSRF, duration/size limits and dependency-license review. Static hosting does not implement or authorize remote YouTube downloads.
 
+## Future upload path (not enabled)
+
+For a feature that genuinely needs remote files, do **not** change the default local-only editor or route uploads through this static-assets Worker. Use a **separate, auth/quota-controlled API Worker only for short-lived upload authorizations**, then direct, opt-in **R2 presigned PUT** from the browser to a private temporary object. Large binary bodies must bypass the 128 MB API Worker isolate; source files should remain as browser `File` objects rather than being copied to JS ArrayBuffers for transfer.
+
+A presigned PUT URL is a bearer capability until expiry; CORS and MIME signatures are not upload-size enforcement, and R2 temporary-file lifecycle deletion is eventual. Full abuse protection, cost quotas, retention and cleanup require separate implementation and explicit approval. See [Cloudflare upload architecture and memory plan](../architecture/CLOUDFLARE_UPLOAD_MEMORY.md).
+
 ## Quality and privacy gaps
 
 This configuration does not validate real Cloudflare hosting, Workers billing in the user's account, cross-device compatibility, Cloudflare dashboard settings, production traffic, RSS usage, ICC color management or EXIF rendering fidelity. No CI deploy tokens or Wrangler package dependencies have been added.

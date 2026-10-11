@@ -1,6 +1,6 @@
 # Multi-page image-only PDF — engineering milestone
 
-10 October 2026 UTC. **Implementation prepared; CI verification pending.** No deployment, new runtime dependency, file upload, telemetry or public release.
+10 October 2026 UTC. **Initial PR tests passed on the earlier base; rebased implementation now requires fresh CI verification with updated raster memory limits.** No deployment, new runtime dependency, file upload, telemetry or public release.
 
 ## Product
 
@@ -16,7 +16,7 @@ The selected file bytes are not passed to any remote service. A disposable image
 - Several Blob/ArrayBuffer copies and the native browser decoder can still create memory pressure; these bounds are **not browser process RSS guarantees**.
 - Raster output may change color/orientation and is not PDF/A, PDF/UA or accessible searchable text. No full metadata anonymization or exact color profile preservation is claimed.
 
-## Verification planned
+## Verification and pending rebase checks
 
 Unit: object count /Kids order /Count, exact xref offsets, stream byte identity, determinism and rejection of too many/few pages, wrong JPEG dimensions, corrupted input, metadata segments, and aggregate resource budget.
 

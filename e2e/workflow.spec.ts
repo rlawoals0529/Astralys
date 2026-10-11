@@ -750,6 +750,45 @@ test('privacy details and keyboard-alternative redaction remain labelled and mob
  expect(await page.evaluate(()=>document.activeElement?.id)).toBe('size-preset');
 });
 
+test('scoped decode survives mismatched declared MIME and preserves local-only downloaded pixels',async({page},testInfo)=>{
+ const outgoing:string[]=[];
+ page.on('request',request=>{
+  const url=request.url();
+  if(!url.startsWith('http://127.0.0.1:4173/')&&!url.startsWith('blob:'))
+    outgoing.push(url);
+ });
+ // File.type is untrusted: the byte-signature inspection must still drive the decode.
+ await load(page,'wrong-extension.jpg','image/jpeg',png(1200,800,true));
+ await expect(page.locator('#file-warning')).toContainText('does not match');
+ await expect(page.locator('#width')).toHaveValue('1200');
+ await page.locator('#size-preset').selectOption('long-800');
+ await expect(page.locator('#width')).toHaveValue('800');
+ await expect(page.locator('#height')).toHaveValue('533');
+ await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
+ await page.locator('#tone-brightness').evaluate(node=>{
+  const slider=node as HTMLInputElement;slider.value='12';slider.dispatchEvent(new Event('change',{bubbles:true}));
+ });
+ await expect(page.locator('#cancel')).toBeHidden();
+ await page.locator('#format').selectOption('image/png');
+ await page.getByRole('button',{name:'Create image'}).click();
+ const pending=page.waitForEvent('download');
+ await page.getByRole('link',{name:'Download image'}).click();
+ const download=await pending;
+ const result=inspect(await readFile((await download.path())!));
+ expect(result).toMatchObject({mime:'image/png',width:800,height:533,metadata:[]});
+ expect(outgoing).toEqual([]);
+ const perf=await page.evaluate(()=>{
+  // Some Chromium builds expose performance.memory; Firefox normally does not.
+  const memory=(performance as Performance&{memory?:{usedJSHeapSize?:number}}).memory;
+  return {reportedJsHeapBytes:memory?.usedJSHeapSize??null,
+   note:'JS heap only; not browser process RSS, decoder, GPU or wasm memory'};
+ });
+ await testInfo.attach('local-memory-evidence.json',{body:JSON.stringify(perf),contentType:'application/json'});
+ await page.getByRole('button',{name:'Clear file'}).click();
+ await expect(page.locator('#preview')).not.toHaveAttribute('src',/blob:/);
+ await expect(page.locator('#download')).not.toHaveAttribute('href',/blob:/);
+});
+
 test('local multi-page image PDF uses sanitized JPEG streams and correct page/xref structure',async({page})=>{
  await page.locator('#pdf-page-files').setInputFiles([
    {name:'one.png',mimeType:'image/png',buffer:png(8,4,true)},

@@ -28,8 +28,8 @@ try {
       const interactive = page.locator('#export-form');
       await interactive.scrollIntoViewIfNeeded();
       await page.screenshot({ path: `artifacts/design-preview/${viewport.name}-export.png`, animations: 'disabled' });
-      const navCurrent = await page.locator('.sidebar nav [aria-current="page"]').count();
-      if (navCurrent !== 1) throw new Error(`${viewport.name}: expected one current workspace navigation item, got ${navCurrent}`);
+      const activeNavigation = page.locator('.sidebar nav [aria-current="page"]');
+      if (await activeNavigation.count() !== 1) throw new Error(`${viewport.name}: expected exactly one current workspace navigation item`);
       const horizontalClip = await page.evaluate(() => {
         const rect = document.querySelector('#export-form')?.getBoundingClientRect();
         return rect ? rect.left < -1 || rect.right > window.innerWidth + 1 : true;

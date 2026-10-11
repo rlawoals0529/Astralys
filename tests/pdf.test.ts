@@ -37,7 +37,7 @@ describe('PDF section assembly without a full output buffer',()=>{
   expect(blob.type).toBe('application/pdf');
   expect(blob.size).toBe(fromBlob.length);
   const text=Buffer.from(fromBlob).toString('latin1');
-  const xref=Number(text.match(/startxref\\n(\\d+)\\n%%EOF/)![1]);
+  const xref=Number(text.match(/startxref\n(\d+)\n%%EOF/)![1]);
   expect(text.slice(xref,xref+4)).toBe('xref');
  });
  it('rejects malformed pages before offering sections',()=>{

@@ -2,6 +2,10 @@
 
 Copy the following into a new chat. Repository state and current reports take precedence over this snapshot.
 
+Latest worker-memory milestone: PR #18 squash-merged as `85b314f5aaa6ce795aac7eb7cc2af242946499d2`. In `src/workers/image.worker.ts`, source bytes are scoped to a short-lived `inspectSource(file)` helper for magic-byte validation; decoding consumes `file.slice(0,file.size,info.mime)` instead of `new Blob([fullSourceBytes])`, avoiding an intentional duplicate whole-file source allocation while preserving MIME mismatch recovery. `tests/worker-memory.test.ts` is a mock-worker regression for precisely one source read and one Blob slice. PR CI [38111437574](https://github.com/rlawoals0529/Astralys/actions/runs/38111437574) passed 79 unit + 68 Chromium/Firefox browser tests, plus PhotoCraft/native/WASM/Rust audit checks. `docs/architecture/CLOUDFLARE_UPLOAD_MEMORY.md` details maximized static-asset delivery (no script-first Worker invocations), 128 MB Cloudflare Worker isolate limit, **not enabled** direct R2 presigned uploads from the browser with a future independent authenticated/quota-controlled API Worker, and a realistic client memory budget; metadata-only upload authorization is not a working R2 upload service. Cloud uploads, backend API, R2 and production deployment remain disabled; issue #8 release gate stands. PR #17 multi-page PDF is concurrent and edited the same worker; its authors were notified to reconcile both behaviors before merging.
+
+
+
 ---
 
 Continue my existing **Astralys** engineering project. Do not restart or scaffold a replacement.

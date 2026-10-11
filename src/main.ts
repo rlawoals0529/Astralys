@@ -279,7 +279,17 @@ previewImage.onpointercancel=e=>{if(!finishRedactionDrag(e,false))endCropDrag(e,
 function inputTab(link:boolean) {el('file-entry').hidden=link;el('link-entry').hidden=!link;for(const [id,active] of [['link-tab',link],['file-tab',!link]] as const){el(id).classList.toggle('selected',active);el(id).setAttribute('aria-pressed',String(active));}if(link)input('media-url').focus();}
 el('file-tab').onclick=()=>inputTab(false);el('link-tab').onclick=()=>inputTab(true);
 el('link-entry').onsubmit=e=>{e.preventDefault();const result=el('link-result');result.replaceChildren();result.hidden=false;try{const c=classifyMediaLink(input('media-url').value);const heading=document.createElement('h2'),body=document.createElement('p');heading.textContent=c.title;body.textContent=c.message;result.append(heading,body);}catch(error){result.textContent=(error as Error).message;}};
-el('privacy-button').onclick=()=>{el('privacy-panel').hidden=!el('privacy-panel').hidden;};el('close-privacy').onclick=()=>{el('privacy-panel').hidden=true;el('privacy-button').focus();};
+const privacyButton=el<HTMLButtonElement>('privacy-button');
+privacyButton.onclick=()=>{
+  const show=el('privacy-panel').hidden;
+  el('privacy-panel').hidden=!show;
+  privacyButton.setAttribute('aria-expanded',String(show));
+};
+el('close-privacy').onclick=()=>{
+  el('privacy-panel').hidden=true;
+  privacyButton.setAttribute('aria-expanded','false');
+  privacyButton.focus();
+};
 const categories: Record<string,[string,string]>={images:['Image tools, ready here.','Convert, resize, remove metadata, or make simple Photo adjustments. PNG, JPEG and WebP stay on your device.'],video:['Video is on the roadmap.','Transcoding, trimming and audio extraction are not available in this build. No video file is opened or uploaded.'],audio:['Audio is on the roadmap.','Local audio conversion will follow codec and distribution review. No audio processor is loaded.'],pdf:['One image, one PDF.','Choose a PNG, JPEG or WebP image, then create a single-page PDF locally. JPEG compression and a white background are used. This build does not open, render, merge or modify existing PDFs.'],documents:['Documents are on the roadmap.','Office document conversion is not supported yet. Files are never uploaded as a fallback.'],archives:['Archive tools are on the roadmap.','Extraction will require path, file-count and expanded-size protections. No archive extraction is available now.'],data:['Data tools are on the roadmap.','CSV and JSON inspection and conversion are planned. No data parsing is available in this build.'],creative:['Photo studio · a small beginning.','Crop, rotate, adjust brightness/contrast/saturation, black out sensitive regions and compare locally. Layers and PSD editing remain future work.']};
 for(const button of document.querySelectorAll<HTMLButtonElement>('[data-category]')) button.onclick=()=> {
   for(const b of document.querySelectorAll('[data-category]')){b.classList.remove('active');b.removeAttribute('aria-current');}button.classList.add('active');button.setAttribute('aria-current','page');

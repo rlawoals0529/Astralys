@@ -19,7 +19,7 @@ This change avoids **one explicit full-PDF JavaScript Uint8Array allocation**. T
 
 Unit tests compare the exact PDF bytes emitted by direct multi-part Blob construction against the existing contiguous writer, assert that JPEG sections reuse the original page byte views, preserve exact xref offsets and reject malformed pages. The full Chromium/Firefox end-to-end PDF tests remain mandatory, including actual downloaded image streams, cancellation and mobile layout.
 
-**CI verdict pending** at creation; add actual run and test counts after successful completion. Manual browser-process memory profiling with multi-page photographic inputs remains open under `docs/quality/PHOTO_QA_PROTOCOL.md`.
+**Verified:** [PR #24](https://github.com/rlawoals0529/Astralys/pull/24) squash-merged as `4c392487243e260e3e89840d0fd79bb593aedaf9`. [CI run 38163750110](https://github.com/rlawoals0529/Astralys/actions/runs/38163750110) completed **success in both jobs**: 88/88 unit tests, 76/76 Chromium/Firefox production browser tests, isolated PhotoCraft browser/native/WASM validation, production build, offline static preflight, dependency/license checks, zero reported npm audit vulnerabilities and pinned Rust audit. An initial run failed solely because the newly added xref-test regex matched literal backslash-n instead of a newline; this was fixed without removing or weakening PDF byte or xref assertions. A separate post-merge CI run is an additional gate. Manual browser-process memory profiling with multi-page photographic inputs remains open under `docs/quality/PHOTO_QA_PROTOCOL.md`.
 
 ## Cloudflare and uploads boundary
 

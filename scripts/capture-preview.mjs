@@ -21,12 +21,15 @@ try {
       await page.screenshot({ path: `artifacts/design-preview/${viewport.name}-home.png`, fullPage: true, animations: 'disabled' });
       await page.locator('#sample').click();
       await page.locator('#workspace').waitFor({ state: 'visible' });
+      await page.locator('#export-form').waitFor({ state: 'visible' });
       const workspaceOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
       if (workspaceOverflow) throw new Error(`${viewport.name}: workspace overflows horizontally`);
       await page.screenshot({ path: `artifacts/design-preview/${viewport.name}-workspace.png`, fullPage: true, animations: 'disabled' });
       const interactive = page.locator('#export-form');
       await interactive.scrollIntoViewIfNeeded();
       await page.screenshot({ path: `artifacts/design-preview/${viewport.name}-export.png`, animations: 'disabled' });
+      const navCurrent = await page.locator('.sidebar nav [aria-current="page"]').count();
+      if (navCurrent !== 1) throw new Error(`${viewport.name}: expected one current workspace navigation item, got ${navCurrent}`);
       const horizontalClip = await page.evaluate(() => {
         const rect = document.querySelector('#export-form')?.getBoundingClientRect();
         return rect ? rect.left < -1 || rect.right > window.innerWidth + 1 : true;

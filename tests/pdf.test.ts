@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { imagePdf, imagePagesPdf } from '../src/core/pdf';
+import { imagePdf, imagePagesPdf, imagePagesPdfParts } from '../src/core/pdf';
 // Original 8×4 synthetic RGB image, generated once for this fixture.
 const jpeg=Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAEAAgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDlKKKK7T+uz//Z','base64');
 describe('single-image PDF',()=>{
@@ -24,6 +24,26 @@ describe('single-image PDF',()=>{
   for(const [offset,value] of [[4,12],[9,4]]){const modified=Buffer.from(jpeg);modified[sof+offset]=value;expect(()=>imagePdf(modified,8,4)).toThrow();}
  });
  it('rejects output near the memory ceiling before parsing',()=>{expect(()=>imagePdf(new Uint8Array(64*1024*1024),8,4)).toThrow('too large');});
+});
+
+describe('PDF section assembly without a full output buffer',()=>{
+ it('matches contiguous PDF bytes through direct Blob sections while reusing JPEG byte views',async()=>{
+  const pages=[{jpeg,width:8,height:4},{jpeg,width:8,height:4}];
+  const sections=imagePagesPdfParts(pages);
+  expect(sections.filter(part=>part===jpeg)).toHaveLength(2);
+  const blob=new Blob(sections as BlobPart[],{type:'application/pdf'});
+  const fromBlob=new Uint8Array(await blob.arrayBuffer());
+  expect(fromBlob).toEqual(imagePagesPdf(pages));
+  expect(blob.type).toBe('application/pdf');
+  expect(blob.size).toBe(fromBlob.length);
+  const text=Buffer.from(fromBlob).toString('latin1');
+  const xref=Number(text.match(/startxref\n(\d+)\n%%EOF/)![1]);
+  expect(text.slice(xref,xref+4)).toBe('xref');
+ });
+ it('rejects malformed pages before offering sections',()=>{
+  expect(()=>imagePagesPdfParts([{jpeg,width:8,height:4}])).toThrow('2 to 8');
+  expect(()=>imagePagesPdfParts([{jpeg,width:8,height:4},{jpeg:jpeg.subarray(0,-1),width:8,height:4}])).toThrow();
+ });
 });
 
 describe('multi-image page PDF composition from freshly sanitized JPEG pages',()=>{

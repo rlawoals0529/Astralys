@@ -24,3 +24,7 @@ Status: protocol only; **no measurements have been collected**.
 - Investigate repeated after-clear growth before increasing caps; browser caches/GC can explain transient retention and require controlled repeated trials.
 - Compare Chromium and Firefox without assuming identical canvas color management or encoder output.
 - No uploads, external telemetry, production deployment or new dependencies are required.
+
+## Opt-in local Chromium sampler
+
+With Node 24, the project's locked dependencies and Playwright Chromium installed, run a local production preview in one terminal (`npm run build && npm run preview`). In another terminal run `node scripts/measure-browser-memory.mjs`. Set `ASTRALYS_MEMORY_RUNS=5` to change the number of fresh-browser trials (1–30). `ASTRALYS_BASE_URL` can point to a different local preview. The sampler is Linux-only and uses `/proc` plus `ps` to sum the browser launcher and descendant process RSS; it prints JSON to stdout and does not upload data. Its synthetic 2048px PNG fixture is exported through Astralys at 1024px, then cleared and reloaded. `peakRssBytes` is a 100ms-sampled maximum, not a guaranteed peak. This script does **not** replace diverse real-image, Firefox, PDF, cancellation, or manual accessibility evaluation. Results are not collected or certified merely by committing the script.

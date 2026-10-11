@@ -21,6 +21,12 @@ A local-first creative workspace: start with a file, find a useful next action, 
 
 The production browser pipeline is verified in hosted Chromium and Firefox tests, including real downloads, dimensions, metadata removal, cancellation/recovery, keyboard focus and CSP enforcement. The isolated PhotoCraft/WASM spike additionally passed both browsers for bounded RGBA tiles and 512×512 multi-tile compositing, cancellation/restart and WASM memory checks. It is an experiment, not a production Photo feature. See the [verification report](docs/reports/MILESTONE_1.md) for exact revisions, commands and remaining manual accessibility/real-world coverage. This remains a private pre-release milestone.
 
+## Static-host readiness (not deployed)
+
+Astralys has a static-only `wrangler.toml` for **Cloudflare Workers Static Assets**, with the browser doing all conversion, edits and image export. `npm run check` validates the compiled `dist` bundle, checks copied security headers and rejects accidental inclusion of sensitive/local source artifacts; no Wrangler dependency or automatic deployment is enabled. **Private GitHub visibility does not protect a publicly deployed URL.** Publication requires release issue #8 and separate authorization.
+
+See the [Cloudflare preparation guide](docs/deployment/CLOUDFLARE_STATIC.md). The local verification server also refuses to expose `/_headers` or hidden/source-map paths.
+
 ## Run locally
 
 ```sh
@@ -70,6 +76,7 @@ TypeScript/Vite native DOM UI → typed action/file logic → disposable image w
 - [Before/after Photo comparison verification](docs/reports/PHOTO_COMPARE.md)
 - [Export presets and fidelity verification](docs/reports/EXPORT_FIDELITY.md)
 - [Photo fidelity, memory and accessibility QA protocol](docs/quality/PHOTO_QA_PROTOCOL.md) — manual real-photo/AT/process-memory checks still open
+- [Cloudflare Workers static hosting readiness](docs/deployment/CLOUDFLARE_STATIC.md) — offline preflight only; no deployment or Cloudflare account access
 - [Batch conversion, tone and opaque redaction verification](docs/reports/BATCH_TONE_REDACTION.md)
 - [Resume prompt for a new ChatGPT chat](docs/RESUME_PROMPT.md)
 
@@ -77,4 +84,4 @@ Original code is MIT. Upstream names, marks, assets and dependencies retain thei
 
 ## Next milestone
 
-With bounded local batch conversion, tonal editing and opaque pixel redaction implemented, prioritize real-world image fidelity, mobile interaction, accessibility and browser-process memory checks, followed by more reliable export presets. The PhotoCraft multi-tile WASM worker remains isolated pending color, licensing and security review. The opt-in REA command is for developer builds only; it does not ship or install a runtime. No backend or remote-media release is approved; keep provider access gated until separate legal/product and SSRF reviews pass.
+With export presets and synthetic fidelity evidence already merged, prioritize representative real-photo and EXIF/ICC testing, manual accessibility/touch checks, worker/process memory profiling and final release gating. Cloudflare static-host configuration is preparation only; no publish, credentials or domains. The PhotoCraft multi-tile WASM worker remains isolated pending color, licensing and security review. The opt-in REA command is for developer builds only; it does not ship or install a runtime. No backend or remote-media release is approved; keep provider access gated until separate legal/product and SSRF reviews pass.

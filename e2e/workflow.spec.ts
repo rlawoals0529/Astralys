@@ -611,3 +611,42 @@ test('photo-like gradient with alpha survives local PNG/JPEG re-encoding and rec
  await testInfo.attach('image-fidelity-evidence.json',{body:JSON.stringify(evidence,null,2),contentType:'application/json'});
  await expect(page.locator('#size-preset-help')).toContainText('Custom dimensions');
 });
+
+test('static Cloudflare-ready build keeps CSP, no raw deployment metadata and no fake route fallback',async({page,request})=>{
+ const response=await request.get('/');
+ expect(response.ok()).toBe(true);
+ const headers=response.headers();
+ expect(headers['content-security-policy']).toContain("connect-src 'none'");
+ expect(headers['content-security-policy']).toContain("worker-src 'self'");
+ expect(headers['content-security-policy']).toContain("frame-ancestors 'none'");
+ expect(headers['x-content-type-options']).toBe('nosniff');
+ for(const path of ['/_headers','/.env','/arbitrary/unknown-route','/assets/missing-file.js']){
+  const missing=await request.get(path);
+  expect(missing.status(),path).toBe(404);
+ }
+ await load(page);
+ await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
+ await page.getByRole('button',{name:'Compare original'}).focus();
+ await page.keyboard.press('Enter');
+ await expect(page.locator('#comparison-original')).toBeVisible();
+ const image=page.locator('#preview');
+ await expect(image).toHaveAttribute('src',/^blob:/);
+ expect(await page.evaluate(()=>performance.getEntriesByType('resource').some(e=>e.name.startsWith('https://')))).toBe(false);
+});
+
+test('mobile preset controls and redaction inputs remain keyboard accessible',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await load(page);
+ const preset=page.getByLabel('Export size');
+ await preset.focus();
+ await page.keyboard.press('End');
+ await expect(page.locator('#size-preset')).toHaveValue('custom');
+ await page.keyboard.press('Home');
+ await expect(page.locator('#size-preset')).toHaveValue('original');
+ await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
+ await page.getByLabel('Left %').focus();
+ await page.keyboard.press('ControlOrMeta+A');
+ await page.keyboard.type('20');
+ await expect(page.locator('#redact-x')).toHaveValue('20');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});

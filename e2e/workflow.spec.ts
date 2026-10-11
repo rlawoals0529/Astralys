@@ -323,7 +323,7 @@ test('links are classified without making any remote request',async({page})=>{
 });
 test('keyboard navigation and focus, category honesty, reduced motion and mobile layout',async({page})=>{
  await page.emulateMedia({reducedMotion:'reduce'});await page.keyboard.press('Tab');await expect(page.getByText('Skip to workspace')).toBeFocused();await page.keyboard.press('Enter');await expect(page.locator('#main')).toBeFocused();
- await page.getByRole('button',{name:'PDF',exact:true}).focus();await page.keyboard.press('Enter');await expect(page.locator('#category-panel')).toContainText('does not open');
+ await page.getByRole('button',{name:'PDF',exact:true}).focus();await page.keyboard.press('Enter');await expect(page.locator('#category-panel')).toContainText('Existing PDFs are not opened, parsed, merged or modified.');
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(await page.evaluate(()=>matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
 });

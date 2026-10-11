@@ -95,6 +95,13 @@ for (let run = 1; run <= iterations; run++) {
     await page.getByRole('button',{name:'Create PDF',exact:true}).click();
     await page.getByRole('link',{name:'Download PDF'}).waitFor({state:'visible'});
     const afterExport = totalRss(browser.process().pid);
+    const pages = Array.from({length: 8}, (_, i) => ({name: `page-${i+1}.png`, mimeType: 'image/png', buffer: Buffer.from(fixture)}));
+    await page.locator('#pdf-page-files').setInputFiles(pages);
+    await page.locator('#pdf-compose').click();
+    await page.locator('#pdf-download').waitFor({state:'visible', timeout: 120_000});
+    const afterMultipagePdf = totalRss(browser.process().pid);
+    await page.locator('#pdf-clear').click();
+    await page.locator('#pdf-result').waitFor({state:'hidden'});
     await page.getByRole('button',{name:'Clear file'}).click();
     await page.locator('#workspace').waitFor({state:'hidden'});
     const afterClear = totalRss(browser.process().pid);
@@ -104,9 +111,9 @@ for (let run = 1; run <= iterations; run++) {
     sampling = undefined;
     results.push({
       run, browserName, browserVersion: browser.version(), baselineRssBytes: baseline, ...sampled,
-      afterExportRssBytes: afterExport, afterClearRssBytes: afterClear, afterReloadRssBytes: afterReload,
+      afterExportRssBytes: afterExport, afterMultipagePdfRssBytes: afterMultipagePdf, afterClearRssBytes: afterClear, afterReloadRssBytes: afterReload,
       elapsedMs: Math.round(performance.now() - started),
-      note: 'Local Astralys 1024px PNG and single-page PDF exports; sampled peak is interval-dependent, not a hard memory ceiling.'
+      note: 'Local image, single-page PDF and eight-page PDF exports; sampled peak is interval-dependent, not a hard memory ceiling.'
     });
   } finally {
     sampling?.stop();

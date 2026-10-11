@@ -7,6 +7,7 @@
  */
 import { chromium } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 const baseURL = process.env.ASTRALYS_BASE_URL ?? 'http://127.0.0.1:4173';
 const iterations = Number(process.env.ASTRALYS_MEMORY_RUNS ?? 5);
@@ -36,7 +37,7 @@ function descendants(root) {
 
 function rssBytes(pid) {
   try {
-    const data = execFileSync('cat', [`/proc/${pid}/status`], { encoding: 'utf8' });
+    const data = readFileSync(`/proc/${pid}/status`, 'utf8');
     const match = data.match(/^VmRSS:\s+(\d+) kB$/m);
     return match ? Number(match[1]) * 1024 : 0;
   } catch {
@@ -56,24 +57,34 @@ for (let run = 1; run <= iterations; run++) {
     await page.goto(baseURL, { waitUntil: 'networkidle' });
     const baseline = totalRss(browser.process().pid);
     const started = performance.now();
-    await page.evaluate(async () => {
+    const fixture = await page.evaluate(async () => {
       const image = document.createElement('canvas');
       image.width = 2048;
       image.height = 2048;
       const context = image.getContext('2d');
       if (!context) throw new Error('2D canvas unavailable');
+      context.fillStyle = '#356ac7';
       context.fillRect(0, 0, image.width, image.height);
       const blob = await new Promise(resolve => image.toBlob(resolve, 'image/png'));
-      if (!blob || blob.size === 0) throw new Error('PNG encode failed');
+      if (!blob || blob.size === 0) throw new Error('PNG fixture encode failed');
+      return Array.from(new Uint8Array(await blob.arrayBuffer()));
     });
-    const afterCanvas = totalRss(browser.process().pid);
+    await page.locator('#file-input').setInputFiles({name:'memory-fixture.png',mimeType:'image/png',buffer:Buffer.from(fixture)});
+    await page.locator('#workspace').waitFor({state:'visible'});
+    await page.locator('#width').fill('1024');
+    await page.getByRole('button',{name:'Create image'}).click();
+    await page.locator('#download').waitFor({state:'visible'});
+    const afterExport = totalRss(browser.process().pid);
+    await page.getByRole('button',{name:'Clear file'}).click();
+    await page.locator('#workspace').waitFor({state:'hidden'});
+    const afterClear = totalRss(browser.process().pid);
     await page.reload({ waitUntil: 'networkidle' });
     const afterReload = totalRss(browser.process().pid);
     results.push({
       run, browser: browser.version(), baselineRssBytes: baseline,
-      afterCanvasRssBytes: afterCanvas, afterReloadRssBytes: afterReload,
+      afterExportRssBytes: afterExport, afterClearRssBytes: afterClear, afterReloadRssBytes: afterReload,
       elapsedMs: Math.round(performance.now() - started),
-      note: 'Synthetic browser canvas baseline; NOT an Astralys app export or peak RSS.'
+      note: 'Real Astralys 1024px PNG export using synthetic local fixture; snapshots, NOT peak RSS.'
     });
   } finally {
     await browser.close();

@@ -46,3 +46,7 @@ PhotoCraft source is an architectural reference and the existing small, audited 
 ## QA evidence follow-up (11 October 2026)
 
 PR #25 adds `docs/quality/BROWSER_MEMORY_EVIDENCE.md`, a reproducible browser-process RSS worksheet covering single image, batch, multi-page PDF, cancellation and cleanup in Chromium and Firefox. This is a protocol, **not collected process-memory data**; the next implementation must automate workloads and measure representative rights-cleared images before changing limits. No deployment or uploads are authorized.
+
+## Release verification handoff
+
+Use [the release evidence checklist](../quality/RELEASE_EVIDENCE_CHECKLIST.md) to track real-photo, metadata, assistive-technology, device and process-memory evidence. Automated synthetic browser tests are not a substitute for these checks. Keep issue #8 as the separate publication approval gate.

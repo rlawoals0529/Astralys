@@ -47,7 +47,10 @@ try {
           const control = controls.nth(i);
           if (!(await control.isVisible())) continue;
           const box = await control.boundingBox();
-          if (box && box.width < 24) throw new Error(`${viewport.name}: export control ${i} is narrower than 24px`);
+          if (box && box.width < 24) {
+            const detail = await control.evaluate((element) => `${element.tagName.toLowerCase()}#${element.id || '(no id)'}[type=${element.getAttribute('type') || 'n/a'}]`);
+            throw new Error(`${viewport.name}: export control ${i} (${detail}) is only ${Math.round(box.width)}px wide`);
+          }
         }
       }
     } finally {

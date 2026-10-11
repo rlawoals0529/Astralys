@@ -8,9 +8,11 @@
 import { chromium } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { setInterval as every } from 'node:timers';
 
 const baseURL = process.env.ASTRALYS_BASE_URL ?? 'http://127.0.0.1:4173';
 const iterations = Number(process.env.ASTRALYS_MEMORY_RUNS ?? 5);
+const sampleIntervalMs = 100;
 if (!Number.isSafeInteger(iterations) || iterations < 1 || iterations > 30) {
   throw new Error('ASTRALYS_MEMORY_RUNS must be an integer between 1 and 30');
 }
@@ -49,6 +51,15 @@ function totalRss(root) {
   return [...descendants(root)].reduce((sum, pid) => sum + rssBytes(pid), 0);
 }
 
+function sampleProcessTree(pid) {
+  let peak = 0;
+  let samples = 0;
+  const collect = () => { peak = Math.max(peak, totalRss(pid)); samples++; };
+  collect();
+  const timer = every(collect, sampleIntervalMs);
+  return {stop() { clearInterval(timer); collect(); return {peakRssBytes: peak, samples, intervalMs: sampleIntervalMs}; }};
+}
+
 const results = [];
 for (let run = 1; run <= iterations; run++) {
   const browser = await chromium.launch({ headless: true });
@@ -57,6 +68,7 @@ for (let run = 1; run <= iterations; run++) {
     await page.goto(baseURL, { waitUntil: 'networkidle' });
     const baseline = totalRss(browser.process().pid);
     const started = performance.now();
+    const sampling = sampleProcessTree(browser.process().pid);
     const fixture = await page.evaluate(async () => {
       const image = document.createElement('canvas');
       image.width = 2048;
@@ -80,11 +92,12 @@ for (let run = 1; run <= iterations; run++) {
     const afterClear = totalRss(browser.process().pid);
     await page.reload({ waitUntil: 'networkidle' });
     const afterReload = totalRss(browser.process().pid);
+    const sampled = sampling.stop();
     results.push({
-      run, browser: browser.version(), baselineRssBytes: baseline,
+      run, browser: browser.version(), baselineRssBytes: baseline, ...sampled,
       afterExportRssBytes: afterExport, afterClearRssBytes: afterClear, afterReloadRssBytes: afterReload,
       elapsedMs: Math.round(performance.now() - started),
-      note: 'Real Astralys 1024px PNG export using synthetic local fixture; snapshots, NOT peak RSS.'
+      note: 'Local Astralys 1024px PNG export; sampled peak is interval-dependent, not a hard memory ceiling.'
     });
   } finally {
     await browser.close();

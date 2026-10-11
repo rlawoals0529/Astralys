@@ -1,5 +1,5 @@
 /**
- * Local-only Chromium process-memory sampler.
+ * Local-only Chromium/Firefox process-memory sampler.
  *
  * Launch with `npm run build && npm run preview` in another terminal.
  * Run `node scripts/measure-browser-memory.mjs` after Playwright browsers are installed.
@@ -68,12 +68,13 @@ const results = [];
 for (const browserName of browserNames) {
 for (let run = 1; run <= iterations; run++) {
   const browser = await ({chromium, firefox})[browserName].launch({ headless: true });
+  let sampling;
   try {
     const page = await browser.newPage();
     await page.goto(baseURL, { waitUntil: 'networkidle' });
     const baseline = totalRss(browser.process().pid);
     const started = performance.now();
-    const sampling = sampleProcessTree(browser.process().pid);
+    sampling = sampleProcessTree(browser.process().pid);
     const fixture = await page.evaluate(async () => {
       const image = document.createElement('canvas');
       image.width = 2048;
@@ -92,7 +93,7 @@ for (let run = 1; run <= iterations; run++) {
     await page.getByRole('button',{name:'Create image'}).click();
     await page.locator('#download').waitFor({state:'visible'});
     await page.getByRole('button',{name:'Create PDF',exact:true}).click();
-    await page.locator('#download').waitFor({state:'visible'});
+    await page.getByRole('link',{name:'Download PDF'}).waitFor({state:'visible'});
     const afterExport = totalRss(browser.process().pid);
     await page.getByRole('button',{name:'Clear file'}).click();
     await page.locator('#workspace').waitFor({state:'hidden'});
@@ -100,6 +101,7 @@ for (let run = 1; run <= iterations; run++) {
     await page.reload({ waitUntil: 'networkidle' });
     const afterReload = totalRss(browser.process().pid);
     const sampled = sampling.stop();
+    sampling = undefined;
     results.push({
       run, browserName, browserVersion: browser.version(), baselineRssBytes: baseline, ...sampled,
       afterExportRssBytes: afterExport, afterClearRssBytes: afterClear, afterReloadRssBytes: afterReload,
@@ -107,6 +109,7 @@ for (let run = 1; run <= iterations; run++) {
       note: 'Local Astralys 1024px PNG and single-page PDF exports; sampled peak is interval-dependent, not a hard memory ceiling.'
     });
   } finally {
+    sampling?.stop();
     await browser.close();
   }
 }

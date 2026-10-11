@@ -7,7 +7,7 @@
  */
 import { chromium, firefox } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { setInterval as every } from 'node:timers';
 
 const baseURL = process.env.ASTRALYS_BASE_URL ?? 'http://127.0.0.1:4173';
@@ -22,6 +22,18 @@ if (!Number.isSafeInteger(iterations) || iterations < 1 || iterations > 30) {
 }
 if (process.platform !== 'linux') {
   throw new Error('Process RSS sampling currently requires Linux /proc; do not interpret heap-only results as RSS.');
+}
+
+function findBrowserRoot(browserName, beforePids) {
+  const candidates = readdirSync('/proc').filter(x => /^\d+$/.test(x)).map(Number).filter(pid => !beforePids.has(pid));
+  const matches = candidates.filter(pid => {
+    try {
+      const command = readFileSync(`/proc/${pid}/cmdline`, 'utf8').replaceAll('\0', ' ');
+      return browserName === 'chromium' ? /chrome-headless-shell|chrome-linux/.test(command) && /--remote-debugging-pipe/.test(command) : /firefox/.test(command) && /-juggler-pipe/.test(command);
+    } catch { return false; }
+  });
+  if (matches.length !== 1) throw new Error(`Expected exactly one new ${browserName} browser process, found ${matches.length}`);
+  return matches[0];
 }
 
 function descendants(root) {
@@ -67,14 +79,16 @@ function sampleProcessTree(pid) {
 const results = [];
 for (const browserName of browserNames) {
 for (let run = 1; run <= iterations; run++) {
+  const beforePids = new Set(readdirSync('/proc').filter(x => /^\d+$/.test(x)).map(Number));
   const browser = await ({chromium, firefox})[browserName].launch({ headless: true });
+  const browserPid = findBrowserRoot(browserName, beforePids);
   let sampling;
   try {
     const page = await browser.newPage();
     await page.goto(baseURL, { waitUntil: 'networkidle' });
-    const baseline = totalRss(browser.process().pid);
+    const baseline = totalRss(browserPid);
     const started = performance.now();
-    sampling = sampleProcessTree(browser.process().pid);
+    sampling = sampleProcessTree(browserPid);
     const fixture = await page.evaluate(async () => {
       const image = document.createElement('canvas');
       image.width = 2048;
@@ -94,12 +108,12 @@ for (let run = 1; run <= iterations; run++) {
     await page.locator('#download').waitFor({state:'visible'});
     await page.getByRole('button',{name:'Create PDF',exact:true}).click();
     await page.getByRole('link',{name:'Download PDF'}).waitFor({state:'visible'});
-    const afterExport = totalRss(browser.process().pid);
+    const afterExport = totalRss(browserPid);
     const pages = Array.from({length: 8}, (_, i) => ({name: `page-${i+1}.png`, mimeType: 'image/png', buffer: Buffer.from(fixture)}));
     await page.locator('#pdf-page-files').setInputFiles(pages);
     await page.locator('#pdf-compose').click();
     await page.locator('#pdf-download').waitFor({state:'visible', timeout: 120_000});
-    const afterMultipagePdf = totalRss(browser.process().pid);
+    const afterMultipagePdf = totalRss(browserPid);
     await page.locator('#pdf-clear').click();
     await page.locator('#pdf-result').waitFor({state:'hidden'});
     await page.locator('#pdf-page-files').setInputFiles(pages);
@@ -108,17 +122,17 @@ for (let run = 1; run <= iterations; run++) {
     await page.locator('#pdf-cancel').click();
     await page.locator('#pdf-cancel').waitFor({state:'hidden'});
     await page.locator('#pdf-result').waitFor({state:'hidden'});
-    const afterCancellation = totalRss(browser.process().pid);
+    const afterCancellation = totalRss(browserPid);
     await page.locator('#pdf-page-files').setInputFiles(pages);
     await page.locator('#pdf-compose').click();
     await page.locator('#pdf-download').waitFor({state:'visible',timeout:120_000});
-    const afterCancellationRecovery = totalRss(browser.process().pid);
+    const afterCancellationRecovery = totalRss(browserPid);
     await page.locator('#pdf-clear').click();
     await page.getByRole('button',{name:'Clear file'}).click();
     await page.locator('#workspace').waitFor({state:'hidden'});
-    const afterClear = totalRss(browser.process().pid);
+    const afterClear = totalRss(browserPid);
     await page.reload({ waitUntil: 'networkidle' });
-    const afterReload = totalRss(browser.process().pid);
+    const afterReload = totalRss(browserPid);
     const sampled = sampling.stop();
     sampling = undefined;
     results.push({

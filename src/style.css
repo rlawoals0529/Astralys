@@ -78,3 +78,18 @@
 #pdf-pages #pdf-status{font-size:12px;line-height:1.6;overflow-wrap:anywhere}
 #pdf-pages .batch-heading p:last-child{margin:0 0 16px}
 #pdf-page-size,#pdf-page-files{max-width:100%}
+
+/* Mobile workspace polish: avoid clipped controls and improve touch targets. */
+@media(max-width:650px){
+  .sidebar nav{scrollbar-width:thin;scroll-padding-inline:12px}
+  .sidebar .nav{min-height:44px;display:inline-flex;align-items:center}
+  .input-tabs{gap:16px;padding-inline:14px;overflow-x:auto}
+  .input-tabs button{min-height:44px;white-space:nowrap}
+  .has-file .dropzone{flex-wrap:wrap;justify-content:flex-start}
+  .has-file .dropzone .primary{min-height:44px}
+  .file-heading{flex-wrap:wrap}
+  .photo-buttons button,.frame-actions button,.redact-controls button,.tone-controls button{min-height:44px}
+  .inspector{padding:18px;min-width:0}
+  .work-grid>*{min-width:0}
+}
+@media(max-width:380px){.topbar{gap:8px}.topbar>*{min-width:0}.local-badge{white-space:nowrap}}

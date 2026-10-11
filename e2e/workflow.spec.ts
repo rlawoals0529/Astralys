@@ -749,3 +749,75 @@ test('privacy details and keyboard-alternative redaction remain labelled and mob
  await expect(page.locator('#size-preset-help')).toContainText('No upscaling');
  expect(await page.evaluate(()=>document.activeElement?.id)).toBe('size-preset');
 });
+
+test('local multi-page image PDF uses sanitized JPEG streams and correct page/xref structure',async({page})=>{
+ await page.locator('#pdf-page-files').setInputFiles([
+   {name:'one.png',mimeType:'image/png',buffer:png(8,4,true)},
+   {name:'two.png',mimeType:'image/png',buffer:png(6,3,true)}
+ ]);
+ await expect(page.locator('#pdf-compose')).toBeEnabled();
+ await page.getByRole('button',{name:'Create multi-page PDF'}).click();
+ await expect(page.locator('#pdf-status')).toContainText('2 image pages');
+ await expect(page.locator('#pdf-result')).toBeVisible();
+ const pending=page.waitForEvent('download');
+ await page.getByRole('link',{name:'Download multi-page PDF'}).click();
+ const d=await pending;expect(d.suggestedFilename()).toBe('astralys-pages.pdf');
+ const bytes=await readFile((await d.path())!);const text=bytes.toString('latin1');
+ expect(text.startsWith('%PDF-1.4')).toBe(true);
+ expect(text).toContain('/Kids [3 0 R 6 0 R]');
+ expect(text).toContain('/Count 2');
+ expect(text).toContain('/MediaBox [0 0 6 3]');
+ expect(text).toContain('/MediaBox [0 0 4.5 2.25]');
+ expect(text.match(/\/Subtype \/Image/g)).toHaveLength(2);
+ expect(text).not.toMatch(/PRIVATE|\/JavaScript|\/EmbeddedFiles/);
+ const start=Number(text.match(/startxref\n(\d+)\n%%EOF/)![1]);
+ const rows=text.slice(start).split('\n');expect(rows[1]).toBe('0 9');
+ for(let id=1;id<=8;id++){
+   const offset=Number(rows[id+2].slice(0,10));
+   expect(text.slice(offset,offset+7)).toBe(`${id} 0 obj`);
+ }
+ for(const id of [4,7]){
+   const header=text.slice(text.indexOf(`${id} 0 obj`),text.indexOf('stream\n',text.indexOf(`${id} 0 obj`)));
+   const length=Number(header.match(/\/Length (\d+)/)![1]);
+   const offset=text.indexOf('stream\n',text.indexOf(`${id} 0 obj`))+7;
+   const jpeg=bytes.subarray(offset,offset+length);
+   expect(inspect(jpeg)).toMatchObject({mime:'image/jpeg',metadata:[]});
+ }
+ await page.getByRole('button',{name:'Clear PDF'}).click();
+ await expect(page.locator('#pdf-result')).toBeHidden();
+ await expect(page.locator('#pdf-download')).not.toHaveAttribute('href',/blob:/);
+});
+test('multi-page composer rejects malformed images as a whole and can recover',async({page})=>{
+ await page.locator('#pdf-page-files').setInputFiles([
+   {name:'valid.png',mimeType:'image/png',buffer:png(8,4,false)},
+   {name:'bad.png',mimeType:'image/png',buffer:Buffer.from('not a valid image')}
+ ]);
+ await page.getByRole('button',{name:'Create multi-page PDF'}).click();
+ await expect(page.locator('#pdf-status')).toContainText('not supported');
+ await expect(page.locator('#pdf-result')).toBeHidden();
+ await expect(page.locator('#pdf-cancel')).toBeHidden();
+ await page.locator('#pdf-page-files').setInputFiles([
+   {name:'valid.png',mimeType:'image/png',buffer:png(8,4,false)},
+   {name:'valid2.png',mimeType:'image/png',buffer:png(8,4,false)}
+ ]);
+ await page.getByRole('button',{name:'Create multi-page PDF'}).click();
+ await expect(page.locator('#pdf-result')).toBeVisible();
+ await page.setViewportSize({width:320,height:850});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+test('multi-page composition cancellation terminates a stalled worker and releases the result',async({page})=>{
+ await page.locator('#pdf-page-files').setInputFiles([
+   {name:'one.png',mimeType:'image/png',buffer:png()},
+   {name:'two.png',mimeType:'image/png',buffer:png()}
+ ]);
+ await page.route('**/assets/image.worker-*.js',route=>route.fulfill({contentType:'text/javascript',body:'self.onmessage=()=>{}'}));
+ await page.getByRole('button',{name:'Create multi-page PDF'}).click();
+ await expect(page.getByRole('button',{name:'Cancel PDF'})).toBeVisible();
+ await page.getByRole('button',{name:'Cancel PDF'}).click();
+ await expect(page.locator('#pdf-status')).toContainText('cancelled');
+ await expect(page.locator('#pdf-result')).toBeHidden();
+ await page.unroute('**/assets/image.worker-*.js');
+ await page.getByRole('button',{name:'Create multi-page PDF'}).click();
+ await expect(page.locator('#pdf-result')).toBeVisible();
+ await expect(page.locator('#pdf-status')).toContainText('2 image pages');
+});

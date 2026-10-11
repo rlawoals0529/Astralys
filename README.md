@@ -10,6 +10,7 @@ A local-first creative workspace: start with a file, find a useful next action, 
 - Dedicated worker for bounded still-image decode, resize and PNG/JPEG/WebP export.
 - Metadata-container inspection and pixel re-encoding with removal of EXIF/XMP/comments and other supported ancillary metadata. This is not anonymization; visible information remains.
 - Single-page image-to-PDF export in the same worker: JPEG compression, white background, no searchable text. Existing PDFs are not opened.
+- **Multi-page image-to-PDF:** Combine 2–8 still PNG/JPEG/WebP images into a single ordered, image-only PDF using sequential disposable image workers and a separate bounded PDF composer worker. Up to 48 MiB combined input, 32 MiB prepared JPEG pages and 64 MiB output. Explicit download only; existing PDF documents are not opened or merged.
 - Photo workspace: rotate, horizontal flip, square/portrait/classic/widescreen crop presets and drag/keyboard crop positioning. A local, side-by-side Before/After comparison retains the first sanitized preview and displays the current edit; crop positions remain undoable. Image/PDF exports use bounded worker geometry without modifying the original File.
 - **Batch conversion:** Select 1–8 still images (48 MiB combined input) and convert to PNG/JPEG/WebP sequentially in disposable workers. Results and errors are per file, total retained output is capped at 64 MiB, and each download is an explicit click; no archives or bulk auto-downloads.
 - **Smart export sizing:** Keep edited native dimensions, choose a longest-edge limit (2048 / 1600 / 1200 / 800 px), or enter custom dimensions. Automatic presets never enlarge or crop the current image; batch conversion supports the same longest-edge caps. The worker requests high-quality canvas resampling for resized exports.
@@ -79,6 +80,7 @@ TypeScript/Vite native DOM UI → typed action/file logic → disposable image w
 - [Automated worker, Blob cleanup and keyboard-accessibility evidence](docs/reports/QUALITY_LIFECYCLE.md)
 - [Cloudflare Workers static hosting readiness](docs/deployment/CLOUDFLARE_STATIC.md) — offline preflight only; no deployment or Cloudflare account access
 - [Batch conversion, tone and opaque redaction verification](docs/reports/BATCH_TONE_REDACTION.md)
+- [Multi-page image-only PDF verification](docs/reports/MULTIPAGE_PDF.md)
 - [Resume prompt for a new ChatGPT chat](docs/RESUME_PROMPT.md)
 
 Original code is MIT. Upstream names, marks, assets and dependencies retain their own rights. Stock ffmpeg.wasm core is GPL-licensed; it is not bundled. License review and automated tests do not establish legal approval or security certification.

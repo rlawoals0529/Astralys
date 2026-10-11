@@ -41,3 +41,8 @@ Open a file once, get the next useful action in context, adjust locally, compare
 ## Research boundaries
 
 PhotoCraft source is an architectural reference and the existing small, audited color/WASM experiment stays isolated. REA is a separately installed, opt-in development CLI for Astralys's own compiled JavaScript; it is neither an end-user image feature nor a production package.
+
+
+## QA evidence follow-up (11 October 2026)
+
+PR #25 adds `docs/quality/BROWSER_MEMORY_EVIDENCE.md`, a reproducible browser-process RSS worksheet covering single image, batch, multi-page PDF, cancellation and cleanup in Chromium and Firefox. This is a protocol, **not collected process-memory data**; the next implementation must automate workloads and measure representative rights-cleared images before changing limits. No deployment or uploads are authorized.

@@ -134,3 +134,14 @@
   #link-entry{padding:18px}
   .link-row .primary{justify-content:center}
 }
+
+/* Accessible navigation state and clearer result links. */
+.nav[aria-current="page"]{background:#e2dbe9;color:#49365d;font-weight:600}
+.download:focus-visible,.nav:focus-visible{outline:3px solid #765391;outline-offset:2px}
+@media(max-width:650px){
+  .entry-footer{flex-wrap:wrap;row-gap:8px}
+  .entry-footer .text-button{min-height:40px;text-align:left}
+  .batch-results a{padding-block:8px;margin-left:8px}
+  .photo-buttons{row-gap:10px}
+  #export-form{min-width:0}
+}

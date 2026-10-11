@@ -22,6 +22,14 @@ try {
       await page.locator('#sample').click();
       await page.locator('#workspace').waitFor({ state: 'visible' });
       await page.locator('#export-form').waitFor({ state: 'visible' });
+      await page.locator('#preview').waitFor({ state: 'visible' });
+      await page.locator('#preview').evaluate(async (img) => {
+        if (!img.complete) await new Promise((resolve, reject) => {
+          img.addEventListener('load', resolve, { once: true });
+          img.addEventListener('error', reject, { once: true });
+        });
+        if (img.naturalWidth === 0) throw new Error('Sample preview failed to decode');
+      });
       const workspaceOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
       if (workspaceOverflow) throw new Error(`${viewport.name}: workspace overflows horizontally`);
       await page.screenshot({ path: `artifacts/design-preview/${viewport.name}-workspace.png`, fullPage: true, animations: 'disabled' });

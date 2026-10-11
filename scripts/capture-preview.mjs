@@ -16,6 +16,7 @@ try {
       await page.screenshot({ path: `artifacts/design-preview/${viewport.name}-home.png`, fullPage: true, animations: 'disabled' });
       await page.locator('#sample').click();
       await page.locator('#workspace').waitFor({ state: 'visible' });
+
       await page.screenshot({ path: `artifacts/design-preview/${viewport.name}-workspace.png`, fullPage: true, animations: 'disabled' });
     } finally {
       await page.close();

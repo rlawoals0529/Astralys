@@ -1,6 +1,6 @@
 # Decoded raster memory preflight and worker lifecycle
 
-10–11 October 2026. Scope: **browser processing only**, no deployment or remote upload.
+10–11 October 2026. [PR #20](https://github.com/rlawoals0529/Astralys/pull/20), squash merge `0c41e219c81d29ddf58a029d438b696faf8c0b87`. Scope: **browser processing only**, no deployment or remote upload.
 
 ## What changed
 
@@ -18,7 +18,7 @@ The separately merged [Cloudflare/R2 architecture](../architecture/CLOUDFLARE_UP
 
 - New **pure unit tests** reject 16-MP source + native-size export memory demand, accept smaller downscaled exports, include tone scratch and reject invalid dimensions.
 - Added **production Chromium/Firefox** regression: inconsistent declared file MIME versus inspected bytes, local PNG decoding and tonal resized export, actual downloaded bytes and metadata inspection, no outgoing network requests, cleanup on clearing, optional **JS-heap-only** diagnostic attachment. This attachment is not process memory.
-- Complete pull-request CI status and exact counts must be confirmed from GitHub Actions after all jobs exit. No code or deployment results should be inferred from this report alone.
+- Verified [PR CI run 38111987913](https://github.com/rlawoals0529/Astralys/actions/runs/38111987913) **completed successfully in both jobs**: **83/83 Vitest unit tests across 10 files**, **70/70 production Chromium/Firefox browser cases**, TypeScript, lint, build, static assets/license controls, npm audit zero reported vulnerabilities, native Rust/WASM and 10 isolated PhotoCraft browser cases, and pinned cargo audit. These are synthetic/automated results, not browser-process RSS measurements.
 
 ## Follow-up
 

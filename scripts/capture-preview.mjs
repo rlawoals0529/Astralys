@@ -47,7 +47,7 @@ try {
           const control = controls.nth(i);
           if (!(await control.isVisible())) continue;
           const box = await control.boundingBox();
-          const minimumWidth = await control.getAttribute('type') === 'checkbox' ? 20 : 24;
+          const minimumWidth = (await control.getAttribute('type')) === 'checkbox' ? 20 : 24;
           if (box && box.width < minimumWidth) {
             const detail = await control.evaluate((element) => `${element.tagName.toLowerCase()}#${element.id || '(no id)'}[type=${element.getAttribute('type') || 'n/a'}]`);
             throw new Error(`${viewport.name}: export control ${i} (${detail}) is only ${Math.round(box.width)}px wide`);

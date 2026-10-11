@@ -6,7 +6,7 @@ import type { FrameBounds, PhotoState } from './photo';
 import { rasterBudget } from './resource-budget';
 import type { RasterBudget } from './resource-budget';
 
-export type RasterJobMode = 'inspect' | 'export' | 'pdf';
+export type RasterJobMode = 'inspect' | 'export' | 'pdf' | 'pdf-page';
 export interface RasterPlanRequest {
   mode: RasterJobMode;
   width?: number;
@@ -33,9 +33,9 @@ export function planRaster(
 ): RasterPlan {
   checkDimensions(sourceWidth,sourceHeight);
   validatePhotoState(job.photo);
-  if(!['inspect','export','pdf'].includes(job.mode))throw new Error('Unsupported operation.');
+  if(!['inspect','export','pdf','pdf-page'].includes(job.mode))throw new Error('Unsupported operation.');
   if(job.fitWithin!==undefined && (
-    !isLongEdge(job.fitWithin) || job.mode!=='export' ||
+    !isLongEdge(job.fitWithin) || (job.mode!=='export'&&job.mode!=='pdf-page') ||
     job.width!==undefined || job.height!==undefined
   ))throw new Error('Invalid export size preset.');
   const rotated=job.photo.turns%2===1;

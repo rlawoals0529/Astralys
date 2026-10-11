@@ -20,6 +20,9 @@ test('header-based plan preserves exact preview geometry, rotated crop and PDF o
  const cropped=planRaster(800,400,{mode:'inspect',photo});
  expect(cropped).toMatchObject({orientedW:400,orientedH:800,width:400,height:400,
   frame:{x:0,y:200,width:400,height:400}});
+ const pdfPage=planRaster(4000,3000,{mode:'pdf-page',photo:blankPhotoState(),fitWithin:800});
+ expect(pdfPage).toMatchObject({width:800,height:600,toneEnabled:false});
+ expect(pdfPage.budget.estimatedRgbaBytes).toBeLessThan(MAX_RASTER_WORKING_BYTES);
  const pdf=planRaster(640,480,{mode:'pdf',photo:blankPhotoState(),width:320,height:240});
  expect(pdf).toMatchObject({width:320,height:240,toneEnabled:false});
 });

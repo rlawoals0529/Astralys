@@ -1,6 +1,6 @@
 # Pre-decode raster admission: reject costly jobs before image decoding
 
-11 October 2026. Implementation on a private feature branch. Merge/CI outcomes must be filled from actual GitHub Actions evidence before calling this production-complete. No publication, deployment, provider fetching or upload endpoint.
+11 October 2026. Merged PDF-aware implementation on a private feature branch; fresh CI and merge are still required. No publication, deployment, provider fetching or upload endpoint.
 
 ## Problem and improvement
 
@@ -13,7 +13,7 @@ A new pure, typed `planRaster()` in `src/core/image-plan.ts` validates source im
 - `inspectSource()` still reads up to the existing 20 MiB encoded input limit into an ArrayBuffer for structural validation. The browser's decoder, compositor, GPU and garbage collector allocate outside the `rasterBudget()` estimate. **This is not a 96 MiB total process-memory ceiling.**
 - The existing 4 MP tonal-output cap, 16 MP per input, 8192-pixel side, 64 MiB encoded export, worker timeout and sequential batch queues remain unchanged.
 - No server-side Cloudflare Worker, R2 upload authorization, remote conversion, storage or telemetry was added. Astralys stays local-only by default; the [future opt-in upload design](../architecture/CLOUDFLARE_UPLOAD_MEMORY.md) remains unimplemented.
-- A separate [multi-image PDF PR #17](https://github.com/rlawoals0529/Astralys/pull/17) remains independent and may require rebasing against current `main` before merging.
+- [Multi-image PDF PR #17](https://github.com/rlawoals0529/Astralys/pull/17) is now merged as `f83f7a65865cc732962799351dc7944f05b62190`. The updated pre-decode planner explicitly supports its `pdf-page` mode with bounded longest-edge fits, preserving the PDF composer and release limits.
 
 ## Regression evidence to verify
 

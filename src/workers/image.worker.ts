@@ -6,7 +6,7 @@ import { planRaster } from '../core/image-plan';
 import type { LongEdge } from '../core/export-presets';
 import { applyTone, redactionBounds } from '../core/photo';
 import type { PhotoState } from '../core/photo';
-export interface ImageJob { file: File; mode: 'inspect' | 'export' | 'pdf'; mime: ImageMime; width?: number; height?: number; fitWithin?: LongEdge; quality: number; photo: PhotoState; }
+export interface ImageJob { file: File; mode: 'inspect' | 'export' | 'pdf' | 'pdf-page'; mime: ImageMime; width?: number; height?: number; fitWithin?: LongEdge; quality: number; photo: PhotoState; }
 export interface ImageResult { blob: Blob; info: ImageInfo; width: number; height: number; }
 const stage=(s:string)=>self.postMessage({kind:'progress',stage:s});
 /** Release the full source read before asking the decoder for another representation. */
@@ -18,7 +18,7 @@ self.onmessage=async (event: MessageEvent<ImageJob>)=> {
   let bitmap: ImageBitmap | undefined;
   try {
     const job=event.data;
-    if(!['inspect','export','pdf'].includes(job.mode)) throw new Error('Unsupported operation.');
+    if(!['inspect','export','pdf','pdf-page'].includes(job.mode)) throw new Error('Unsupported operation.');
     checkSize(job.file.size);
     if(!['image/png','image/jpeg','image/webp'].includes(job.mime)) throw new Error('Unsupported output format.');
     if(!Number.isFinite(job.quality) || job.quality < 0.1 || job.quality > 1) throw new Error('Quality must be between 10 and 100.');
@@ -42,7 +42,7 @@ self.onmessage=async (event: MessageEvent<ImageJob>)=> {
     ctx.imageSmoothingEnabled=true;
     ctx.imageSmoothingQuality='high';
     stage('Drawing pixels…');
-    if(job.mode==='pdf' || (job.mime==='image/jpeg' && job.mode==='export')) {ctx.fillStyle='#ffffff';ctx.fillRect(0,0,width,height);}
+    if(job.mode==='pdf' || job.mode==='pdf-page' || (job.mime==='image/jpeg' && job.mode==='export')) {ctx.fillStyle='#ffffff';ctx.fillRect(0,0,width,height);}
     ctx.save();ctx.scale(width/frame.width,height/frame.height);ctx.translate(-frame.x,-frame.y);ctx.translate(orientedW/2,orientedH/2);ctx.rotate(job.photo.turns*Math.PI/2);ctx.scale(job.photo.flip?-1:1,1);
     ctx.drawImage(bitmap,-bitmap.width/2,-bitmap.height/2);ctx.restore();
     // The canvas now owns the source pixels. Free the decoder's original frame before
@@ -64,7 +64,7 @@ self.onmessage=async (event: MessageEvent<ImageJob>)=> {
       }
     }
     stage('Encoding and removing metadata…');
-    const mime=job.mode==='inspect'?'image/png':job.mode==='pdf'?'image/jpeg':job.mime;
+    const mime=job.mode==='inspect'?'image/png':(job.mode==='pdf'||job.mode==='pdf-page')?'image/jpeg':job.mime;
     const encoded=await canvas.convertToBlob({type:mime,quality:job.mode==='pdf'?0.92:job.quality});
     if(encoded.type!==mime)throw new Error('Your browser cannot encode this format. Try PNG.');
     if(encoded.size>64*1024*1024)throw new Error('The output is too large. Reduce the dimensions.');

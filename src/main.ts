@@ -8,15 +8,18 @@ import type { LongEdge } from './core/export-presets';
 import { PhotoHistory, blankPhotoState, frameBounds, isFramePreset, validRedaction } from './core/photo';
 import type { RedactionRect, ToneAxis } from './core/photo';
 import type { ImageJob, ImageResult } from './workers/image.worker';
+import type { PdfComposeJob, PdfComposeResult } from './workers/pdf.worker';
 function el<T extends HTMLElement = HTMLElement>(id: string): T { const node=document.getElementById(id); if(!node)throw new Error(`Missing element ${id}`);return node as T; }
 const workerFactory=()=>new Worker(new URL('./workers/image.worker.ts',import.meta.url),{type:'module'});
-const runner=new JobRunner(workerFactory),batchRunner=new JobRunner(workerFactory);
-const previewUrl=new ObjectUrlSlot(), originalPreviewUrl=new ObjectUrlSlot(), outputUrl=new ObjectUrlSlot(), history=new PhotoHistory();
+const runner=new JobRunner(workerFactory),batchRunner=new JobRunner(workerFactory),pdfPageRunner=new JobRunner(workerFactory);
+const pdfComposeRunner=new JobRunner(()=>new Worker(new URL('./workers/pdf.worker.ts',import.meta.url),{type:'module'}));
+const previewUrl=new ObjectUrlSlot(), originalPreviewUrl=new ObjectUrlSlot(), outputUrl=new ObjectUrlSlot(), pdfPagesUrl=new ObjectUrlSlot(), history=new PhotoHistory();
 let rollback: (()=>void) | undefined;
 let file: File | undefined, info: ImageInfo | undefined, requestId=0, busy=false, photoOpen=false, compareMode=false, ratio=1, naturalWidth=0, naturalHeight=0;
 let cropDrag: {pointerId:number; x:number; y:number; width:number; height:number; cropX:number; cropY:number} | undefined;
 let redactArmed=false,redactDrag:{pointerId:number;x:number;y:number}|undefined;
 let batchFiles:File[]=[],batchBusy=false,batchSerial=0;
+let pdfFiles:File[]=[],pdfBusy=false,pdfSerial=0;
 let batchStoredBytes=0;
 const batchUrls:ObjectUrlSlot[]=[];
 const status=(message:string,error=false)=> {el('status').textContent=message;el('status-row').classList.toggle('error',error);};
@@ -67,7 +70,7 @@ function syncPhotoControls() {
 }
 function editPhoto(action:()=>void) {
   if(!file||busy)return;
-  if(batchBusy){status('Finish or cancel the batch before editing a photo.',true);return;}
+  if(batchBusy||pdfBusy){status('Finish or cancel the ongoing batch or PDF composition first.',true);return;}
   const snapshot=history.checkpoint();
   try {action();}catch(e){status(e instanceof Error?e.message:'Invalid Photo edit.',true);return;}
   if(history.checkpoint().length===snapshot.length){syncPhotoControls();return;}
@@ -107,7 +110,7 @@ function settings(mode:'inspect'|'export'|'pdf'): ImageJob {
   return {file,mode,mime:el<HTMLSelectElement>('format').value as ImageMime,width:mode!=='inspect'?width:undefined,height:mode!=='inspect'?height:undefined,quality:Number(input('quality').value)/100,photo:history.current};
 }
 async function process(mode:'inspect'|'export'|'pdf') {
-  if(batchBusy){status('Cancel or finish the batch before editing an image.',true);return;}
+  if(batchBusy||pdfBusy){status('Cancel or finish the batch or PDF composition before editing an image.',true);return;}
   const id=++requestId; runner.cancel(); clearOutput();setBusy(true);
   try {
     const result=await runner.run<ImageResult>(settings(mode),s=> {if(id===requestId)status(s);});
@@ -150,7 +153,7 @@ function renderFile() {
   el('photo-tools').hidden=!photoOpen;el<HTMLSelectElement>('frame-select').value=history.current.frame;syncCropControls();syncComparison();syncPhotoControls();updateFormat();
 }
 async function chooseFile(next: File) {
-  if(batchBusy){status('Finish or cancel the batch before opening another image.',true);return;}
+  if(batchBusy||pdfBusy){status('Finish or cancel the batch or PDF composition before opening another image.',true);return;}
   clearSession(false);file=next;
   try {checkSize(next.size);}catch(e){status((e as Error).message,true);file=undefined;return;}
   status('Opening image…');await process('inspect');
@@ -290,7 +293,7 @@ el('close-privacy').onclick=()=>{
   privacyButton.setAttribute('aria-expanded','false');
   privacyButton.focus();
 };
-const categories: Record<string,[string,string]>={images:['Image tools, ready here.','Convert, resize, remove metadata, or make simple Photo adjustments. PNG, JPEG and WebP stay on your device.'],video:['Video is on the roadmap.','Transcoding, trimming and audio extraction are not available in this build. No video file is opened or uploaded.'],audio:['Audio is on the roadmap.','Local audio conversion will follow codec and distribution review. No audio processor is loaded.'],pdf:['One image, one PDF.','Choose a PNG, JPEG or WebP image, then create a single-page PDF locally. JPEG compression and a white background are used. This build does not open, render, merge or modify existing PDFs.'],documents:['Documents are on the roadmap.','Office document conversion is not supported yet. Files are never uploaded as a fallback.'],archives:['Archive tools are on the roadmap.','Extraction will require path, file-count and expanded-size protections. No archive extraction is available now.'],data:['Data tools are on the roadmap.','CSV and JSON inspection and conversion are planned. No data parsing is available in this build.'],creative:['Photo studio · a small beginning.','Crop, rotate, adjust brightness/contrast/saturation, black out sensitive regions and compare locally. Layers and PSD editing remain future work.']};
+const categories: Record<string,[string,string]>={images:['Image tools, ready here.','Convert, resize, remove metadata, or make simple Photo adjustments. PNG, JPEG and WebP stay on your device.'],video:['Video is on the roadmap.','Transcoding, trimming and audio extraction are not available in this build. No video file is opened or uploaded.'],audio:['Audio is on the roadmap.','Local audio conversion will follow codec and distribution review. No audio processor is loaded.'],pdf:['Create PDFs from local images.','Make a single-page PDF from the current image, or combine 2–8 still images into one multi-page PDF locally. Existing PDFs are not opened, parsed, merged or modified.'],documents:['Documents are on the roadmap.','Office document conversion is not supported yet. Files are never uploaded as a fallback.'],archives:['Archive tools are on the roadmap.','Extraction will require path, file-count and expanded-size protections. No archive extraction is available now.'],data:['Data tools are on the roadmap.','CSV and JSON inspection and conversion are planned. No data parsing is available in this build.'],creative:['Photo studio · a small beginning.','Crop, rotate, adjust brightness/contrast/saturation, black out sensitive regions and compare locally. Layers and PSD editing remain future work.']};
 for(const button of document.querySelectorAll<HTMLButtonElement>('[data-category]')) button.onclick=()=> {
   for(const b of document.querySelectorAll('[data-category]')){b.classList.remove('active');b.removeAttribute('aria-current');}button.classList.add('active');button.setAttribute('aria-current','page');
   const c=button.dataset.category!;const detail=categories[c];el('category-panel').hidden=!detail;
@@ -340,7 +343,7 @@ el('batch-cancel').onclick=()=>{
   batchStatus('Batch cancelled. Completed downloads remain available until cleared.');
 };
 el('batch-start').onclick=async()=>{
-  if(batchBusy||busy||!batchFiles.length){if(busy)batchStatus('Finish or cancel the current Photo edit first.');return;}
+  if(batchBusy||pdfBusy||busy||!batchFiles.length){if(busy||pdfBusy)batchStatus('Finish or cancel another current operation first.');return;}
   const format=el<HTMLSelectElement>('batch-format').value as ImageMime;
   if(!['image/png','image/jpeg','image/webp'].includes(format)){batchStatus('Select PNG, JPEG or WebP.');return;}
   const chosenSize=el<HTMLSelectElement>('batch-size').value;
@@ -381,7 +384,75 @@ el('batch-start').onclick=async()=>{
   batchBusy=false;syncBatch();
   batchStatus('Batch complete: '+completed+' ready, '+failed+' failed. Downloads are individual and optional; files stay in memory until cleared.');
 };
-window.addEventListener('pagehide',()=>{clearBatch(false);++requestId;runner.cancel();previewUrl.clear();originalPreviewUrl.clear();clearOutput();file=undefined;info=undefined;});
-window.addEventListener('pageshow',e=>{if(e.persisted)clearSession();});
-updateFormat();syncBatch();syncPhotoControls();
+// Compose from freshly sanitized JPEG pages. No existing PDF input is opened or parsed.
+const pdfInput=input('pdf-page-files');
+const pdfStatus=(message:string)=>{el('pdf-status').textContent=message;};
+function syncPdfComposer(){
+  pdfInput.disabled=pdfBusy;
+  el<HTMLSelectElement>('pdf-page-size').disabled=pdfBusy;
+  el<HTMLButtonElement>('pdf-compose').disabled=pdfBusy||pdfFiles.length<2;
+  el('pdf-cancel').hidden=!pdfBusy;
+}
+function clearPdfComposer(message=true){
+  ++pdfSerial;pdfPageRunner.cancel();pdfComposeRunner.cancel();pdfBusy=false;
+  pdfFiles=[];pdfPagesUrl.clear();
+  pdfInput.value='';el('pdf-download').removeAttribute('href');el('pdf-result').hidden=true;
+  syncPdfComposer();if(message)pdfStatus('PDF cleared. Choose 2 to 8 still images.');
+}
+pdfInput.onchange=()=>{
+  if(pdfBusy)return;
+  pdfPagesUrl.clear();el('pdf-download').removeAttribute('href');el('pdf-result').hidden=true;
+  const selected=Array.from(pdfInput.files??[]),total=selected.reduce((n,f)=>n+f.size,0);
+  if(selected.length<2||selected.length>8||total>48*1024*1024){
+    pdfFiles=[];pdfInput.value='';pdfStatus('Choose 2 to 8 still images, up to 48 MiB of combined input.');
+  } else {
+    pdfFiles=selected;pdfStatus(pdfFiles.length+' image pages selected in input order. Ready to create a local PDF.');
+  }
+  syncPdfComposer();
+};
+el('pdf-clear').onclick=()=>clearPdfComposer();
+el('pdf-cancel').onclick=()=>{
+  if(!pdfBusy)return;
+  ++pdfSerial;pdfPageRunner.cancel();pdfComposeRunner.cancel();
+  pdfBusy=false;syncPdfComposer();pdfStatus('PDF composition cancelled. Images remain selected for another attempt.');
+};
+el('pdf-compose').onclick=async()=>{
+  if(pdfBusy||busy||batchBusy||pdfFiles.length<2){pdfStatus('Finish other image processing or select 2–8 images first.');return;}
+  const edge=Number(el<HTMLSelectElement>('pdf-page-size').value);
+  if(!isLongEdge(edge)){pdfStatus('Choose a supported PDF page resolution.');return;}
+  const serial=++pdfSerial,selected=[...pdfFiles];
+  pdfBusy=true;pdfPagesUrl.clear();el('pdf-download').removeAttribute('href');el('pdf-result').hidden=true;syncPdfComposer();
+  const prepared:PdfComposeJob['pages']=[];
+  let totalJpegBytes=0;
+  try {
+    for(const [i,next] of selected.entries()){
+      pdfStatus('Preparing page '+(i+1)+' of '+selected.length+' locally…');
+      const result=await pdfPageRunner.run<ImageResult>({
+        file:next,mode:'pdf-page',mime:'image/jpeg',quality:.88,photo:blankPhotoState(),fitWithin:edge as LongEdge
+      } satisfies ImageJob,stage=>{if(serial===pdfSerial)pdfStatus('Page '+(i+1)+': '+stage);});
+      if(serial!==pdfSerial)return;
+      if(result.blob.type!=='image/jpeg')throw new Error('The browser could not prepare a JPEG page.');
+      totalJpegBytes+=result.blob.size;
+      if(totalJpegBytes>32*1024*1024)throw new Error('Prepared images exceed the 32 MiB PDF page budget. Choose a smaller resolution.');
+      prepared.push({blob:result.blob,width:result.width,height:result.height});
+    }
+    pdfStatus('Assembling '+prepared.length+' image pages into a PDF locally…');
+    const finished=await pdfComposeRunner.run<PdfComposeResult>({pages:prepared} satisfies PdfComposeJob,stage=>{if(serial===pdfSerial)pdfStatus(stage);});
+    if(serial!==pdfSerial)return;
+    const link=el<HTMLAnchorElement>('pdf-download');
+    link.href=pdfPagesUrl.set(finished.blob);
+    link.download='astralys-pages.pdf';
+    el('pdf-result').hidden=false;
+    pdfStatus('Multi-page PDF ready: '+finished.pages+' image pages, '+formatBytes(finished.size)+'. Download only if you choose.');
+  }catch(error){
+    if(serial!==pdfSerial)return;
+    pdfPagesUrl.clear();el('pdf-download').removeAttribute('href');el('pdf-result').hidden=true;
+    pdfStatus(error instanceof Error?error.message:'Unable to create the multi-page PDF.');
+  }finally{
+    if(serial===pdfSerial){pdfBusy=false;syncPdfComposer();}
+  }
+};
+window.addEventListener('pagehide',()=>{clearPdfComposer(false);clearBatch(false);++requestId;runner.cancel();previewUrl.clear();originalPreviewUrl.clear();clearOutput();file=undefined;info=undefined;});
+window.addEventListener('pageshow',e=>{if(e.persisted){clearPdfComposer(false);clearSession();}});
+updateFormat();syncBatch();syncPdfComposer();syncPhotoControls();
 document.documentElement.dataset.appReady='true';

@@ -18,7 +18,7 @@
     "test:browser": "playwright test",
     "audit": "npm audit --audit-level=moderate",
     "licenses": "node scripts/licenses.mjs",
-    "check": "npm run typecheck && npm run lint && npm test && npm run build && npm run audit && npm run licenses"
+    "check": "npm run typecheck && npm run lint && npm test && npm run build && node scripts/check-static-assets.mjs && npm run audit && npm run licenses"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

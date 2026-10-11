@@ -1,0 +1,10 @@
+# Astralys — Cloudflare Workers Static Assets configuration only.
+# This repository intentionally has NO Worker script, routes, secrets, bindings,
+# deployment credentials, or automatic publish workflow.
+# Deploying would make the built web UI publicly accessible; leave private until
+# release gate #8 and explicit authorization have been completed.
+name = "astralys"
+compatibility_date = "2026-10-10"
+
+[assets]
+directory = "./dist"

@@ -8,6 +8,11 @@ import type { PhotoState } from '../core/photo';
 export interface ImageJob { file: File; mode: 'inspect' | 'export' | 'pdf'; mime: ImageMime; width?: number; height?: number; fitWithin?: LongEdge; quality: number; photo: PhotoState; }
 export interface ImageResult { blob: Blob; info: ImageInfo; width: number; height: number; }
 const stage=(s:string)=>self.postMessage({kind:'progress',stage:s});
+/** Release the full source read before asking the decoder for another representation. */
+async function inspectSource(file:File):Promise<ImageInfo> {
+  const bytes=new Uint8Array(await file.arrayBuffer());
+  return inspect(bytes,file.name,file.type);
+}
 self.onmessage=async (event: MessageEvent<ImageJob>)=> {
   let bitmap: ImageBitmap | undefined;
   try {
@@ -19,11 +24,12 @@ self.onmessage=async (event: MessageEvent<ImageJob>)=> {
     validatePhotoState(job.photo);
     if(job.fitWithin!==undefined&&(!isLongEdge(job.fitWithin)||job.mode!=='export'||job.width!==undefined||job.height!==undefined))throw new Error('Invalid export size preset.');
     stage('Checking file structure…');
-    const bytes=new Uint8Array(await job.file.arrayBuffer());
-    const info=inspect(bytes,job.file.name,job.file.type);
+    const info=await inspectSource(job.file);
     if(typeof OffscreenCanvas==='undefined' || typeof createImageBitmap==='undefined') throw new Error('This browser lacks worker image support. Try a current Firefox or Chromium browser.');
     stage('Decoding image…');
-    bitmap=await createImageBitmap(new Blob([bytes],{type:info.mime}));
+    // File.slice is a view over the original File. Do not copy the inspection ArrayBuffer
+    // into another full encoded Blob; retain the sniffed MIME when the file declares a lie.
+    bitmap=await createImageBitmap(job.file.slice(0,job.file.size,info.mime));
     checkDimensions(bitmap.width,bitmap.height);
     const rotated=job.photo.turns%2===1;
     const orientedW=rotated?bitmap.height:bitmap.width, orientedH=rotated?bitmap.width:bitmap.height;

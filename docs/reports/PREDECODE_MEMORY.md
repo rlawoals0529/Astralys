@@ -1,6 +1,6 @@
 # Pre-decode raster admission: reject costly jobs before image decoding
 
-11 October 2026. Reconciled implementation after multi-page PDF merge on a private feature branch. Merge/CI outcomes must be filled from actual GitHub Actions evidence before calling this production-complete. No publication, deployment, provider fetching or upload endpoint.
+11 October 2026. [PR #23](https://github.com/rlawoals0529/Astralys/pull/23) merged to private main as `2ecb31cac32889d92a949f7368938775c07f6e5a` after reconciling multi-page PDF. Previous [PR #21](https://github.com/rlawoals0529/Astralys/pull/21) was closed unmerged as superseded. No publication, deployment, provider fetching or upload endpoint.
 
 ## Problem and improvement
 
@@ -15,10 +15,10 @@ A new pure, typed `planRaster()` in `src/core/image-plan.ts` validates source im
 - No server-side Cloudflare Worker, R2 upload authorization, remote conversion, storage or telemetry was added. Astralys stays local-only by default; the [future opt-in upload design](../architecture/CLOUDFLARE_UPLOAD_MEMORY.md) remains unimplemented.
 - PR #17 was merged while the original image-only pre-decode branch was in CI. This reconciled branch **includes** its new `pdf-page` worker mode and applies the same pre-decode admission checks to its prepared PDF image pages. Separate PR #22 may carry follow-up PDF safeguards; avoid overwriting it.
 
-## Regression evidence to verify
+## Verified regression evidence
 
 - Pure unit cases for large native source rejection, smaller preset recovery, image preview geometry, rotated and cropped square, single-page PDF dimensions and multi-page PDF preparation, tone scratch, malformed presets and source dimension validation.
 - Chromium and Firefox browser case loads an actual structurally valid 4000×4000 synthetic still PNG, checks that the native export fails with the memory error, then selects the existing 800-pixel longest-edge preset, exports a real downloadable PNG, verifies decoded dimensions and empty metadata, and clears the source.
-- Production TypeScript, ESLint, Vite, npm audit, license inventory, strict Cloudflare Static Assets offline check, existing resource lifecycle tests, isolated PhotoCraft native/WASM/browser tests and pinned Rust audit remain required gates.
+- [Final feature CI run 38163467266](https://github.com/rlawoals0529/Astralys/actions/runs/38163467266) completed **success in both jobs**. TypeScript, ESLint, Vite build, npm/license audits, strict Cloudflare Static Assets offline preflight, **90/90 unit tests across 11 files**, **78/78 production Chromium/Firefox browser tests** (including local multi-page PDF), isolated PhotoCraft native/WASM/browser verification and pinned Rust audit all passed. npm audit reported 0 vulnerabilities. The earlier image-only PR #21 also passed CI but was superseded when multi-page PDF merged, rather than merged against a stale base.
 
 Future improvement after actual process-memory profiling: consider a bounded input probe instead of a whole encoded `arrayBuffer()`, plus streamed output when measured costs justify complexity. Do not weaken the structural file validation or accidentally change supported output fidelity.

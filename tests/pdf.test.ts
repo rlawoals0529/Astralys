@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { imagePdf } from '../src/core/pdf';
+import { imagePdf, imagePagesPdf } from '../src/core/pdf';
 // Original 8×4 synthetic RGB image, generated once for this fixture.
 const jpeg=Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAEAAgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDlKKKK7T+uz//Z','base64');
 describe('single-image PDF',()=>{
@@ -24,4 +24,45 @@ describe('single-image PDF',()=>{
   for(const [offset,value] of [[4,12],[9,4]]){const modified=Buffer.from(jpeg);modified[sof+offset]=value;expect(()=>imagePdf(modified,8,4)).toThrow();}
  });
  it('rejects output near the memory ceiling before parsing',()=>{expect(()=>imagePdf(new Uint8Array(64*1024*1024),8,4)).toThrow('too large');});
+});
+
+describe('multi-image page PDF composition from freshly sanitized JPEG pages',()=>{
+ it('emits deterministic two-page PDF object graph with exact xref offsets and matching JPEG bytes',()=>{
+   const p={jpeg,width:8,height:4};
+   const original=Buffer.from(jpeg);
+   const bytes=Buffer.from(imagePagesPdf([p,p])),text=bytes.toString('latin1');
+   expect(text).toContain('/Count 2');
+   expect(text).toContain('/Kids [3 0 R 6 0 R]');
+   expect(text).toContain('/MediaBox [0 0 6 3]');
+   expect(text.match(/\/Type \/Page \/Parent/g)).toHaveLength(2);
+   expect(text.match(/\/Subtype \/Image/g)).toHaveLength(2);
+   expect(text).not.toMatch(/\/(?:JavaScript|OpenAction|Metadata|EmbeddedFiles|URI)\b/);
+   const start=Number(text.match(/startxref\n(\d+)\n%%EOF/)![1]);
+   const rows=text.slice(start).split('\n');
+   expect(rows[0]).toBe('xref');expect(rows[1]).toBe('0 9');
+   for(let id=1;id<=8;id++){
+     const offset=Number(rows[id+2].slice(0,10));
+     expect(text.slice(offset,offset+7)).toBe(`${id} 0 obj`);
+   }
+   for(const id of [4,7]){
+     const at=text.indexOf('stream\n',text.indexOf(`${id} 0 obj`))+7;
+     expect(bytes.subarray(at,at+jpeg.length)).toEqual(jpeg);
+   }
+   expect(jpeg).toEqual(original);
+   expect(imagePagesPdf([p,p])).toEqual(imagePagesPdf([p,p]));
+ });
+ it('refuses empty, single, too many, malformed, mismatched or metadata-bearing pages',()=>{
+   const page={jpeg,width:8,height:4};
+   expect(()=>imagePagesPdf([])).toThrow('2 to 8');
+   expect(()=>imagePagesPdf([page])).toThrow('2 to 8');
+   expect(()=>imagePagesPdf(Array.from({length:9},()=>page))).toThrow('2 to 8');
+   expect(()=>imagePagesPdf([page,{...page,width:9}])).toThrow();
+   expect(()=>imagePagesPdf([page,{...page,jpeg:jpeg.subarray(0,-1)}])).toThrow();
+   const metadata=Buffer.concat([jpeg.subarray(0,2),Buffer.from([255,225,0,4,65,66]),jpeg.subarray(2)]);
+   expect(()=>imagePagesPdf([page,{...page,jpeg:metadata}])).toThrow();
+ });
+ it('refuses aggregate JPEG budget before constructing PDF bytes',()=>{
+   const fake=new Uint8Array(33*1024*1024);
+   expect(()=>imagePagesPdf([{jpeg:fake,width:8,height:4},{jpeg,width:8,height:4}])).toThrow('Too much PDF');
+ });
 });

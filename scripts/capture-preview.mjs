@@ -27,6 +27,7 @@ try {
         const img = document.querySelector('#preview');
         return img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0;
       }, null, { timeout: 15000 });
+      await page.evaluate(() => document.fonts.ready);
       const workspaceOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
       if (workspaceOverflow) throw new Error(`${viewport.name}: workspace overflows horizontally`);
       await page.screenshot({ path: `artifacts/design-preview/${viewport.name}-workspace.png`, fullPage: true, animations: 'disabled' });

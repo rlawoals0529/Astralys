@@ -103,19 +103,17 @@ for (let run = 1; run <= iterations; run++) {
     await page.locator('#pdf-clear').click();
     await page.locator('#pdf-result').waitFor({state:'hidden'});
     await page.locator('#pdf-page-files').setInputFiles(pages);
-    await page.route('**/assets/*worker*.js', route => route.fulfill({contentType:'text/javascript',body:'self.onmessage=()=>{}'}));
     await page.locator('#pdf-compose').click();
     await page.locator('#pdf-cancel').waitFor({state:'visible'});
     await page.locator('#pdf-cancel').click();
     await page.locator('#pdf-cancel').waitFor({state:'hidden'});
     await page.locator('#pdf-result').waitFor({state:'hidden'});
-    await page.unroute('**/assets/*worker*.js');
+    const afterCancellation = totalRss(browser.process().pid);
     await page.locator('#pdf-page-files').setInputFiles(pages);
     await page.locator('#pdf-compose').click();
     await page.locator('#pdf-download').waitFor({state:'visible',timeout:120_000});
     const afterCancellationRecovery = totalRss(browser.process().pid);
     await page.locator('#pdf-clear').click();
-    const afterCancellation = totalRss(browser.process().pid);
     await page.getByRole('button',{name:'Clear file'}).click();
     await page.locator('#workspace').waitFor({state:'hidden'});
     const afterClear = totalRss(browser.process().pid);
@@ -127,7 +125,7 @@ for (let run = 1; run <= iterations; run++) {
       run, browserName, browserVersion: browser.version(), baselineRssBytes: baseline, ...sampled,
       afterExportRssBytes: afterExport, afterMultipagePdfRssBytes: afterMultipagePdf, afterCancellationRssBytes: afterCancellation, afterCancellationRecoveryRssBytes: afterCancellationRecovery, afterClearRssBytes: afterClear, afterReloadRssBytes: afterReload,
       elapsedMs: Math.round(performance.now() - started),
-      note: 'Local image, PDF, eight-page PDF and synthetic stalled-worker cancellation; sampled peak is not a hard memory ceiling.'
+      note: 'Local image, PDF, eight-page PDF and PDF cancellation attempt (may race completion); sampled peak is not a hard memory ceiling.'
     });
   } finally {
     sampling?.stop();

@@ -93,3 +93,21 @@
   .work-grid>*{min-width:0}
 }
 @media(max-width:380px){.topbar{gap:8px}.topbar>*{min-width:0}.local-badge{white-space:nowrap}}
+
+/* Keyboard and small-screen refinements; retain visible focus without layout jumps. */
+:where(button,a,input,select,summary):focus-visible{outline-offset:2px}
+@media(max-width:650px){
+  .sidebar nav{overscroll-behavior-inline:contain}
+  .sidebar nav .nav:focus-visible{outline-offset:-3px}
+  .has-file .dropzone>p:not(.format-note){flex:1 1 180px}
+  .has-file .dropzone .primary{flex:0 0 auto}
+  .preview-stage{min-width:0}
+  .dimensions{grid-template-columns:minmax(0,1fr) 15px minmax(0,1fr)}
+  .redact-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .result,.notice,.batch-panel{overflow-wrap:anywhere}
+}
+@media(max-width:380px){
+  .has-file .dropzone .primary{width:100%;justify-content:center}
+  .redact-grid{grid-template-columns:minmax(0,1fr)}
+  .topbar{font-size:7px;letter-spacing:.6px}
+}

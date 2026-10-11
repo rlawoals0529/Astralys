@@ -111,3 +111,14 @@
   .redact-grid{grid-template-columns:minmax(0,1fr)}
   .topbar{font-size:7px;letter-spacing:.6px}
 }
+
+/* Legible helper text and comfortable interactive controls. */
+@media(max-width:650px){
+  .small,.format-note,.metadata-note,.result p{font-size:12px;line-height:1.6}
+  .principles p,.batch-results li{font-size:12px}
+  .inspector label,.inspector details,.batch-fields label{font-size:12px}
+  .inspector input:not([type=range]):not([type=checkbox]),.inspector select,.batch-fields input,.batch-fields select{font-size:16px;min-height:44px}
+  .secondary,.primary,.download{min-height:44px}
+  .download{display:flex;align-items:center}
+  .status-row{line-height:1.5}
+}

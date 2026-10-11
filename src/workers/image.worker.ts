@@ -32,7 +32,7 @@ self.onmessage=async (event: MessageEvent<ImageJob>)=> {
     stage('Decoding image…');
     // File.slice is a view over the original File. Do not copy the inspection ArrayBuffer
     // into another full encoded Blob; retain the sniffed MIME when the file declares a lie.
-    bitmap=await createImageBitmap(job.file.slice(0,job.file.size,info.mime));
+    bitmap=await createImageBitmap(job.file.slice(0,job.file.size,info.mime),{imageOrientation:'from-image'});
     checkDimensions(bitmap.width,bitmap.height);
     if(bitmap.width!==info.width||bitmap.height!==info.height)throw new Error('Decoded image dimensions do not match the file header.');
 

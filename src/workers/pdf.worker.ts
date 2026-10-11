@@ -1,4 +1,4 @@
-import { imagePagesPdf } from '../core/pdf';
+import { imagePagesPdfParts } from '../core/pdf';
 
 export interface PdfComposeJob {
   pages: Array<{blob:Blob;width:number;height:number}>;
@@ -19,8 +19,10 @@ self.onmessage=async(event:MessageEvent<PdfComposeJob>)=>{
       progress('Composing page '+(index+1)+' of '+pages.length+'…');
       verified.push({jpeg:new Uint8Array(await page.blob.arrayBuffer()),width:page.width,height:page.height});
     }
-    const bytes=imagePagesPdf(verified);
-    const blob=new Blob([bytes],{type:'application/pdf'});
+    // Build the output Blob from already-validated PDF sections and JPEG byte views.
+    // Avoid a second JS-owned, contiguous full-PDF Uint8Array (Blob may still copy internally).
+    const parts=imagePagesPdfParts(verified);
+    const blob=new Blob(parts as BlobPart[],{type:'application/pdf'});
     self.postMessage({kind:'done',result:{blob,pages:pages.length,size:blob.size} satisfies PdfComposeResult});
   }catch(error){self.postMessage({kind:'error',error:error instanceof Error?error.message:'Unable to compose image pages.'});}
 };

@@ -61,7 +61,7 @@ export interface ImagePdfPage { jpeg:Uint8Array; width:number; height:number; }
  * Never accepts existing PDFs. The caller must re-encode untrusted source
  * images in a disposable image worker and invoke this from another worker.
  */
-export function imagePagesPdf(pages:readonly ImagePdfPage[]):Uint8Array<ArrayBuffer> {
+export function imagePagesPdfParts(pages:readonly ImagePdfPage[]):Uint8Array[] {
   if(!Array.isArray(pages)||pages.length<2||pages.length>8)
     throw new Error('Choose 2 to 8 image pages.');
   let totalJpegBytes=0;
@@ -92,6 +92,14 @@ export function imagePagesPdf(pages:readonly ImagePdfPage[]):Uint8Array<ArrayBuf
   }
   const xref=size,count=offsets.length;
   append(ascii(`xref\n0 ${count}\n0000000000 65535 f \n${offsets.slice(1).map(n=>`${String(n).padStart(10,'0')} 00000 n \n`).join('')}trailer\n<< /Size ${count} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`));
+  return parts;
+}
+/** Compatibility helper for tests and consumers needing contiguous bytes.
+ * Browser production uses the PDF-part list directly to avoid allocating this full-size JS buffer.
+ */
+export function imagePagesPdf(pages:readonly ImagePdfPage[]):Uint8Array<ArrayBuffer> {
+  const parts=imagePagesPdfParts(pages);
+  const size=parts.reduce((total,part)=>total+part.length,0);
   const output=new Uint8Array(size);let cursor=0;
   for(const part of parts){output.set(part,cursor);cursor+=part.length;}
   return output;

@@ -83,6 +83,7 @@ TypeScript/Vite native DOM UI → typed action/file logic → disposable image w
 - [Decoded raster memory budget evidence](docs/reports/RASTER_BUDGET.md)
 - [Batch conversion, tone and opaque redaction verification](docs/reports/BATCH_TONE_REDACTION.md)
 - [Multi-page image-only PDF verification](docs/reports/MULTIPAGE_PDF.md)
+- [Multi-page PDF Blob assembly and memory assessment](docs/reports/PDF_BLOB_ASSEMBLY.md)
 - [Resume prompt for a new ChatGPT chat](docs/RESUME_PROMPT.md)
 
 Original code is MIT. Upstream names, marks, assets and dependencies retain their own rights. Stock ffmpeg.wasm core is GPL-licensed; it is not bundled. License review and automated tests do not establish legal approval or security certification.

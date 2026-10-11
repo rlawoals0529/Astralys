@@ -2,11 +2,11 @@ import { checkDimensions } from './files';
 const MAX_OUTPUT = 64 * 1024 * 1024;
 const ascii = (s: string) => new TextEncoder().encode(s);
 
-// Internal writer for freshly encoded, metadata-stripped browser JPEG only.
-// Never pass through a user's original JPEG or parse an existing PDF here.
-export function imagePdf(jpeg: Uint8Array, width: number, height: number): Uint8Array<ArrayBuffer> {
-  checkDimensions(width, height);
-  if (jpeg.length > MAX_OUTPUT - 4096) throw new Error('The PDF output is too large. Reduce dimensions.');
+// A strict private validator for our freshly re-encoded baseline RGB JPEG.
+// This is NOT a parser for arbitrary user-supplied PDF/image content.
+function validateCleanBaselineJpeg(jpeg:Uint8Array,width:number,height:number):void {
+  checkDimensions(width,height);
+  if(jpeg.length>MAX_OUTPUT-4096)throw new Error('The PDF output is too large. Reduce dimensions.');
   const invalid = () => { throw new Error('The browser JPEG cannot be placed in a PDF. Try another image.'); };
   if (jpeg.length < 4 || jpeg[0] !== 255 || jpeg[1] !== 216 || jpeg.at(-2) !== 255 || jpeg.at(-1) !== 217) invalid();
   let offset = 2, frames = 0, scan = false, segments = 0;
@@ -28,6 +28,11 @@ export function imagePdf(jpeg: Uint8Array, width: number, height: number): Uint8
     if (marker === 0xda) { scan = true; break; }
   }
   if (frames !== 1 || !scan) invalid();
+}
+// Internal writer for freshly encoded, metadata-stripped browser JPEG only.
+// Never pass through a user's original JPEG or parse an existing PDF here.
+export function imagePdf(jpeg: Uint8Array, width: number, height: number): Uint8Array<ArrayBuffer> {
+  validateCleanBaselineJpeg(jpeg,width,height);
   const w = width * 0.75, h = height * 0.75;
   const content = ascii(`q\n${w} 0 0 ${h} 0 0 cm\n/Im0 Do\nQ\n`);
   const parts: Uint8Array[] = [ascii('%PDF-1.4\n'), new Uint8Array([37,226,227,207,211,10])];
@@ -47,5 +52,47 @@ export function imagePdf(jpeg: Uint8Array, width: number, height: number): Uint8
   if (size > MAX_OUTPUT) throw new Error('The PDF output is too large.');
   const output = new Uint8Array(size); let cursor = 0;
   for (const part of parts) { output.set(part,cursor); cursor += part.length; }
+  return output;
+}
+
+export interface ImagePdfPage { jpeg:Uint8Array; width:number; height:number; }
+/**
+ * Compose 2–8 already-cleaned JPEG image pages into an image-only PDF.
+ * Never accepts existing PDFs. The caller must re-encode untrusted source
+ * images in a disposable image worker and invoke this from another worker.
+ */
+export function imagePagesPdf(pages:readonly ImagePdfPage[]):Uint8Array<ArrayBuffer> {
+  if(!Array.isArray(pages)||pages.length<2||pages.length>8)
+    throw new Error('Choose 2 to 8 image pages.');
+  let totalJpegBytes=0;
+  for(const page of pages) {
+    if(!page||!(page.jpeg instanceof Uint8Array))throw new Error('Invalid prepared image page.');
+    totalJpegBytes+=page.jpeg.length;
+    if(totalJpegBytes>32*1024*1024)throw new Error('Too much PDF page image data. Choose smaller images or a smaller size preset.');
+    validateCleanBaselineJpeg(page.jpeg,page.width,page.height);
+  }
+  const parts:Uint8Array[]=[ascii('%PDF-1.4\n'),new Uint8Array([37,226,227,207,211,10])];
+  let size=parts.reduce((sum,item)=>sum+item.length,0);
+  const offsets:number[]=[0];
+  const append=(item:Uint8Array)=>{parts.push(item);size+=item.length;if(size>MAX_OUTPUT)throw new Error('The PDF output is too large.');};
+  const object=(id:number,body:Uint8Array[])=>{
+    if(id!==offsets.length)throw new Error('PDF page object order error.');
+    offsets.push(size);append(ascii(`${id} 0 obj\n`));body.forEach(append);append(ascii('\nendobj\n'));
+  };
+  const kids=pages.map((_,i)=>`${3+i*3} 0 R`).join(' ');
+  object(1,[ascii('<< /Type /Catalog /Pages 2 0 R >>')]);
+  object(2,[ascii(`<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`)]);
+  for(const [i,page] of pages.entries()) {
+    const pageId=3+i*3,imageId=pageId+1,contentId=pageId+2;
+    const w=page.width*0.75,h=page.height*0.75;
+    const content=ascii(`q\n${w} 0 0 ${h} 0 0 cm\n/Im0 Do\nQ\n`);
+    object(pageId,[ascii(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${w} ${h}] /Resources << /XObject << /Im0 ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>`)]);
+    object(imageId,[ascii(`<< /Type /XObject /Subtype /Image /Width ${page.width} /Height ${page.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${page.jpeg.length} >>\nstream\n`),page.jpeg,ascii('\nendstream')]);
+    object(contentId,[ascii(`<< /Length ${content.length} >>\nstream\n`),content,ascii('endstream')]);
+  }
+  const xref=size,count=offsets.length;
+  append(ascii(`xref\n0 ${count}\n0000000000 65535 f \n${offsets.slice(1).map(n=>`${String(n).padStart(10,'0')} 00000 n \n`).join('')}trailer\n<< /Size ${count} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`));
+  const output=new Uint8Array(size);let cursor=0;
+  for(const part of parts){output.set(part,cursor);cursor+=part.length;}
   return output;
 }

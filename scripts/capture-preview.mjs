@@ -24,6 +24,18 @@ try {
       const workspaceOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
       if (workspaceOverflow) throw new Error(`${viewport.name}: workspace overflows horizontally`);
       await page.screenshot({ path: `artifacts/design-preview/${viewport.name}-workspace.png`, fullPage: true, animations: 'disabled' });
+      const interactive = page.locator('#export-form');
+      await interactive.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `artifacts/design-preview/${viewport.name}-export.png`, animations: 'disabled' });
+      if (viewport.width <= 650) {
+        const controls = page.locator('#export-form input, #export-form select, #export-form button');
+        for (let i = 0; i < await controls.count(); i++) {
+          const control = controls.nth(i);
+          if (!(await control.isVisible())) continue;
+          const box = await control.boundingBox();
+          if (box && box.width < 24) throw new Error(`${viewport.name}: export control ${i} is narrower than 24px`);
+        }
+      }
     } finally {
       await page.close();
     }

@@ -2,7 +2,7 @@
 
 A local-first creative workspace: start with a file, find a useful next action, keep your work on your device.
 
-**Private development milestone · no deployment · Chromium + Firefox acceptance verified.** Astralys is the selected working name, not a cleared trademark. See [naming review](docs/legal/NAMING.md).
+**Public source repository · no hosted deployment · automated Chromium + Firefox acceptance verified.** Astralys is the selected working name, not a cleared trademark. See [naming review](docs/legal/NAMING.md).
 
 ## Implemented
 
@@ -21,7 +21,7 @@ A local-first creative workspace: start with a file, find a useful next action, 
 - Local-only Media Link classification. YouTube and all remote fetching remain gated.
 - Keyboard-operable controls, focus styles, status announcements and reduced-motion styling.
 
-The production browser pipeline is verified in hosted Chromium and Firefox tests, including real downloads, dimensions, metadata removal, cancellation/recovery, keyboard focus and CSP enforcement. The isolated PhotoCraft/WASM spike additionally passed both browsers for bounded RGBA tiles and 512×512 multi-tile compositing, cancellation/restart and WASM memory checks. It is an experiment, not a production Photo feature. See the [verification report](docs/reports/MILESTONE_1.md) for exact revisions, commands and remaining manual accessibility/real-world coverage. This remains a private pre-release milestone.
+The production browser pipeline is verified in hosted Chromium and Firefox tests, including real downloads, dimensions, metadata removal, cancellation/recovery, keyboard focus and CSP enforcement. The isolated PhotoCraft/WASM spike additionally passed both browsers for bounded RGBA tiles and 512×512 multi-tile compositing, cancellation/restart and WASM memory checks. It is an experiment, not a production Photo feature. See the [verification report](docs/reports/MILESTONE_1.md) for exact revisions, commands and remaining manual accessibility/real-world coverage. This remains an unreleased application; public source visibility is not hosted-app approval.
 
 ## Static-host readiness (not deployed)
 

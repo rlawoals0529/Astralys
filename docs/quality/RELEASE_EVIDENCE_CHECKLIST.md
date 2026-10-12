@@ -71,12 +71,24 @@ For each sample, copy the following fields into a private local test log. Never 
 
 ## Automated versus manual evidence ledger
 
-| Capability | Automated coverage | Remaining verification |
+| Capability | Automated coverage on merged main | Remaining verification |
 | --- | --- | --- |
-| PNG metadata sanitization | Structural container removal and idempotence; pending PR #40 checks byte-identical IDAT preservation | Real embedded-profile image color appearance |
-| PNG hostile chunk handling | Pending PR #39 checks chunk CRC rejection and a CRC-valid dimension-bomb fixture | Confirm exact-head Chromium/Firefox CI before merge |
-| JPEG EXIF orientation privacy | Pending PR #41 checks removal of a synthetic Orientation=6 APP1 block without altering scan bytes | Browser-decoded orientation and actual downloaded pixel orientation for real photos |
+| PNG metadata sanitization | PRs #38 and #40: structural container removal, idempotence, immutable input, and byte-identical IDAT preservation | Real embedded-profile image color appearance |
+| PNG hostile chunk handling | PR #43: CRC rejection and valid-CRC dimension-bomb fixture; PR #44: unknown critical chunk rejection | Independent malicious-input fuzzing and real-world malformed-image samples |
+| JPEG EXIF orientation privacy | PR #41: synthetic Orientation=6 APP1 removal while preserving JPEG scan bytes | Browser-decoded orientation and actual downloaded pixel orientation for real photos |
 | Memory and object URL lifecycle | Browser export lifecycle and bounded input tests | Process RSS/peak memory on supported devices and repeated 20-export/batch/PDF runs |
 | Accessibility | Browser viewport and workflow coverage | Keyboard, screen-reader, zoom and real touch-device audit |
 
-This ledger is a planning snapshot, not a passing-test assertion: a pending PR does not count as merged or verified evidence. Update each row against actual CI and manual observations, with build SHAs, before any release claim.
+Merged PRs indicate reviewed automated regression coverage, **not** completion of the manual release gates. Record the exact release-candidate SHA, full CI run and actual observations before checking the release boxes.
+
+## Hosted-release blockers tracked in issue #8
+
+- [ ] Review all Git history, Actions logs and artifacts for secrets and unintended proprietary/user material; current-tree scans alone are insufficient.
+- [ ] Complete Astralys name/trademark review or rename before public distribution.
+- [ ] Audit dependency provenance, licenses, upstream notices and production artifact contents.
+- [ ] Establish and verify private vulnerability reporting and release repository security settings.
+- [ ] Complete real-device accessibility, EXIF/ICC fidelity, memory/RSS and cancellation evidence above.
+- [ ] Confirm the hosted static app has restrictive CSP/security headers and no unintended upload, analytics or persistence endpoint.
+- [ ] Obtain explicit owner authorization for deployment and any visibility change; source publication and hosted application are separate decisions.
+
+Do not infer a release pass from green CI alone. The isolated PhotoCraft WASM experiment remains distinct from the production editor.

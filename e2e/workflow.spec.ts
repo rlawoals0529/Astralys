@@ -55,6 +55,7 @@ test('unsupported, malformed, animated and dimension bomb inputs fail honestly t
  const large=png();large.writeUInt32BE(9000,16);
  // Keep the dimension-bomb fixture structurally valid so the size guard, not CRC validation, rejects it.
  const ihdr=chunk('IHDR',large.subarray(16,29));large.set(ihdr,8);
+ // The CRC-valid header must still be rejected by the independent dimension limit.
  const animated=Buffer.concat([png().subarray(0,33),chunk('acTL',Buffer.alloc(8)),png().subarray(33)]);
  for(const [name,buffer,message] of [['x.svg',Buffer.from('<svg onload="alert(1)"/>'),'not supported'],['broken.png',png().subarray(0,40),'malformed'],['large.png',large,'exceeds'],['animated.png',animated,'Animated PNG'],['x.pdf',Buffer.from('%PDF-1.7'),'PDF detected']] as const) {
   await page.locator('#file-input').setInputFiles({name,mimeType:'image/png',buffer});await expect(page.locator('#status')).toContainText(message);await expect(page.locator('#download')).toBeHidden();

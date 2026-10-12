@@ -36,6 +36,8 @@ function pngChunks(a: Uint8Array): Chunk[] {
     const size = d.getUint32(offset); const end = offset + 12 + size;
     if (end > a.length) fail();
     const type = text(a, offset + 4, 4);
+    // PNG chunk types must be four ASCII letters; the reserved third byte must be uppercase.
+    if (!/^[A-Za-z]{2}[A-Z][A-Za-z]$/.test(type)) fail('This PNG contains an invalid chunk type. Export a compatible copy.');
     // Unknown critical chunks cannot be safely decoded or silently discarded.
     if (/^[A-Z]/.test(type) && !['IHDR', 'PLTE', 'IDAT', 'IEND'].includes(type)) fail('This PNG contains an unsupported critical chunk. Export a compatible copy.');
     // Validate each PNG chunk's CRC before trusting its structure or copying bytes.

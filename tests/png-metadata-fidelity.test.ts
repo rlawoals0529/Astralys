@@ -76,4 +76,23 @@ describe('PNG metadata container fidelity', () => {
   expect(() => inspect(invalid, 'unknown.png', 'image/png')).toThrow(/unsupported critical chunk/);
   expect(() => stripEncodedMetadata(invalid, 'image/png')).toThrow(/unsupported critical chunk/);
  });
+
+ it('rejects invalid PNG chunk type bytes and a lowercase reserved letter', () => {
+  const source = Buffer.from(pngWithMetadataContainers());
+  const firstChunkAfterIHDR = 33;
+  for (const type of ['texT', 't1Xt']) {
+   const damaged = Buffer.from(source);
+   damaged.write(type, firstChunkAfterIHDR + 4, 'ascii');
+   const size = damaged.readUInt32BE(firstChunkAfterIHDR);
+   const end = firstChunkAfterIHDR + 12 + size;
+   let crc = 0xffffffff;
+   for (const byte of damaged.subarray(firstChunkAfterIHDR + 4, end - 4)) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+   }
+   damaged.writeUInt32BE((crc ^ 0xffffffff) >>> 0, end - 4);
+   expect(() => inspect(damaged, 'bad.png', 'image/png')).toThrow(/invalid chunk type/);
+   expect(() => stripEncodedMetadata(damaged, 'image/png')).toThrow(/invalid chunk type/);
+  }
+ });
 });

@@ -1,6 +1,6 @@
 # Browser memory evidence worksheet
 
-Status: protocol only; **no measurements have been collected**.
+Status: one historical synthetic smoke run is recorded below; representative real-image and repeated-trial measurements remain pending.
 
 ## Reproducible run
 
@@ -25,15 +25,22 @@ Status: protocol only; **no measurements have been collected**.
 - Compare Chromium and Firefox without assuming identical canvas color management or encoder output.
 - No uploads, external telemetry, production deployment or new dependencies are required.
 
-## Opt-in local Chromium sampler
+## Opt-in local Chromium and Firefox sampler
 
-With Node 24, the project's locked dependencies and Playwright Chromium installed, run a local production preview in one terminal (`npm run build && npm run preview`). In another terminal run `node scripts/measure-browser-memory.mjs`. Set `ASTRALYS_MEMORY_RUNS=5` to change the number of fresh-browser trials (1–30). `ASTRALYS_BASE_URL` can point to a different local preview. The sampler is Linux-only and uses `/proc` plus `ps` to sum the browser launcher and descendant process RSS; it prints JSON to stdout and does not upload data. Its synthetic 2048px PNG fixture is exported through Astralys at 1024px, then cleared and reloaded. `peakRssBytes` is a 100ms-sampled maximum, not a guaranteed peak. This script does **not** replace diverse real-image, Firefox, PDF, cancellation, or manual accessibility evaluation. Results are not collected or certified merely by committing the script.
+With Node 24, locked dependencies and both Playwright browsers installed, run a local production preview (`npm run build && npm run preview`). Run `node scripts/measure-browser-memory.mjs` in another terminal. `ASTRALYS_MEMORY_RUNS=5` selects fresh-browser trials (1–30); `ASTRALYS_MEMORY_BROWSERS=chromium,firefox` selects browsers. `ASTRALYS_BASE_URL` accepts only an HTTP loopback preview, never a remote site. The Linux-only script sums `/proc` RSS for the launcher and descendants via `ps`, samples every 100 ms and prints JSON without uploading it.
 
-## Current harness scope
+Each fresh-browser trial uses an original synthetic 2048×2048 PNG and performs:
 
-The opt-in script now exercises Chromium and Firefox, single-image PNG and PDF output, eight-image PDF composition, a best-effort cancellation attempt during PDF composition, and a fresh composition after cancellation. All operations are local and use generated non-private PNG fixtures. CI's regular `check` job does not run this script: a green CI result is **not** evidence that the performance harness passed. Run the sampler manually with a local preview, record the complete stdout and environment, and investigate any failure before treating results as performance evidence. Sampled RSS excludes processes outside the launched browser's descendant tree and may miss spikes between samples.
+1. Twenty sequential 1024px image exports, verifying a new result URL and recording RSS/resource counts after each export.
+2. Single-image PDF export and clear.
+3. Eight-image batch at a 1200px longest-edge limit and clear.
+4. Eight-page PDF, immediate cancellation of a new composition, recovery with another composition, clear and reload.
 
-**Cancellation caveat:** PDF composition can complete before the cancel control is reached. This sampler does not claim deterministic cancellation coverage or worker interception; a separate controlled cancellation test is needed to establish that behavior. Treat any timeout waiting for `#pdf-cancel` as a test-design failure to investigate, not as a memory measurement.
+Observable worker and Blob URL accounting must return to zero after clear. Repeated image exports retain exactly three URLs (original preview, current preview, download); batch retains eight. Workloads require at most one live worker. Cancellation starts and cancels in one JavaScript task, before a worker completion can arrive, then asserts the cancelled status and zero resources. This checks early cancellation, not cancellation at every decoder/composer stage; separate browser regression tests still cover those boundaries.
+
+CI has a dedicated `memory-harness` job with one trial per browser. `npm run check` alone does not execute the harness. A green full workflow includes this smoke workload, but one trial is not evidence of a stable memory plateau. Review exact-head job logs and the `memory-harness-evidence` artifact.
+
+`peakRssBytes` is a sampled maximum, not a guaranteed peak. Summing process RSS can double-count shared pages; it excludes non-descendant processes, GPU/driver allocations outside that tree, and spikes between samples. Resource instrumentation counts application-owned wrappers/URLs, not native allocation reclamation or GC. Do not infer leak freedom from after-clear RSS, and do not compare instrumented measurements with uninstrumented runs as equivalent. No memory limits are raised by this harness. Real-camera/ICC samples, five-trial distributions, actual mobile devices and screen-reader evaluation remain pending.
 
 ## First automated smoke run (2026-10-11)
 

@@ -18,7 +18,7 @@ export function pngWithMetadataContainers() {
   signature,base.subarray(8,ihdrEnd),
   chunk('iCCP',Buffer.from([112,114,111,102,105,108,101,0,0,120,156,3,0,0,0,0,1])),
   chunk('eXIf',Buffer.from([73,73,42,0,8,0,0,0,0,0,0,0,0,0])),
-  chunk('tEXt',Buffer.from('Comment\\0private fixture marker')),
+  chunk('tEXt',Buffer.from('Comment\0private fixture marker')),
   base.subarray(ihdrEnd),
  ]);
 }

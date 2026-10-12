@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { png } from '../tests/fixtures';
+import { openApp } from './navigation';
 import { inspect } from '../src/core/files';
 
 const pages=[
@@ -9,7 +10,6 @@ const pages=[
   {name:'<img src=x onerror=alert(1)>.png',mimeType:'image/png',buffer:png(16,8,false)},
 ];
 test('loaded image workspace precedes optional multi-file tools in visual and keyboard order',async({page})=>{
-  await page.goto('/',{waitUntil:'domcontentloaded'});
   await page.locator('#sample').click();
   await expect(page.locator('#workspace')).toBeVisible();
   for(const width of [320,768,1440]){
@@ -22,9 +22,8 @@ test('loaded image workspace precedes optional multi-file tools in visual and ke
     expect(order.dom).toBe(true);expect(order.workspace).toBeLessThan(order.batch);expect(order.batch).toBeLessThan(order.pdf);
   }
 });
-test.beforeEach(async({page})=>{
-  await page.goto('/',{waitUntil:'domcontentloaded'});
-  await expect(page.locator('html')).toHaveAttribute('data-app-ready','true');
+test.beforeEach(async({page,browserName},testInfo)=>{
+  await openApp(page,browserName,testInfo);
   await page.locator('#pdf-page-files').setInputFiles(pages);
 });
 test('keyboard page reordering changes downloaded PDF stream order without interpreting names',async({page})=>{

@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { openApp } from './navigation';
 import { inspect } from '../src/core/files';
 import { withOrientation } from '../tests/exif-fixtures';
 
@@ -15,9 +16,8 @@ async function corners(page: Page, bytes: number[]) {
     return [[.25,.25],[.75,.25],[.25,.75],[.75,.75]].map(([x,y])=>Array.from(ctx.getImageData(Math.floor(x*canvas.width),Math.floor(y*canvas.height),1,1).data));
   }, bytes);
 }
+test.beforeEach(async({page,browserName},testInfo)=>openApp(page,browserName,testInfo));
 for (let orientation=1;orientation<=8;orientation++) test(`EXIF ${orientation}: preview and downloaded pixels preserve orientation without metadata`, async({page})=>{
-  await page.goto('/',{waitUntil:'domcontentloaded'});
-  await expect(page.locator('html')).toHaveAttribute('data-app-ready','true');
   const original=await page.evaluate(async()=>{
     const c=document.createElement('canvas');c.width=96;c.height=64;const ctx=c.getContext('2d')!;
     for(const [i,color] of ['rgb(240,32,32)','rgb(32,208,32)','rgb(32,32,240)','rgb(240,208,32)'].entries()) {

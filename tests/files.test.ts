@@ -38,3 +38,22 @@ it('strips WebP metadata and repairs RIFF length and VP8X flags',()=>{
  const ext=Buffer.alloc(10);ext[0]=0x0c;const bits=Buffer.from([47,0,0,0,0]);const p=riff([['VP8X',ext],['VP8L',bits],['EXIF',Buffer.from('private')],['XMP ',Buffer.from('private')]]);
  const clean=stripEncodedMetadata(p,'image/webp');expect(inspect(clean).metadata).toEqual([]);expect(Buffer.from(clean).readUInt32LE(4)+8).toBe(clean.length);
 });
+
+it('strips a structurally valid EXIF orientation tag without changing JPEG frame or scan bytes',()=>{
+ // APP1 Exif with little-endian TIFF header and a single Orientation=6 IFD entry.
+ const tiff=Buffer.alloc(8+2+12+4);
+ tiff.write('II',0);tiff.writeUInt16LE(42,2);tiff.writeUInt32LE(8,4);
+ tiff.writeUInt16LE(1,8);tiff.writeUInt16LE(0x0112,10);
+ tiff.writeUInt16LE(3,12);tiff.writeUInt32LE(1,14);tiff.writeUInt16LE(6,18);
+ const exif=Buffer.concat([Buffer.from('Exif\\0\\0'.replace(/\\0/g,'\\x00'),'binary'),tiff]);
+ const app=Buffer.alloc(exif.length+4);app.set([255,225],0);app.writeUInt16BE(exif.length+2,2);app.set(exif,4);
+ const frame=Buffer.from([255,192,0,8,8,0,1,0,2,1]);
+ const scan=Buffer.from([255,218,0,2,1,2,3,255,217]);
+ const jpeg=Buffer.concat([Buffer.from([255,216]),app,frame,scan]);
+ expect(inspect(jpeg).metadata).toContain('APP1');
+ const cleaned=Buffer.from(stripEncodedMetadata(jpeg,'image/jpeg'));
+ expect(inspect(cleaned).metadata).toEqual([]);
+ expect(cleaned.equals(Buffer.concat([Buffer.from([255,216]),frame,scan]))).toBe(true);
+ expect(jpeg.includes(tiff)).toBe(true);
+ expect(cleaned.includes(tiff)).toBe(false);
+});

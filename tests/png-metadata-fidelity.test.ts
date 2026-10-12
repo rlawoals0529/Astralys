@@ -56,5 +56,5 @@ describe('PNG metadata container fidelity', () => {
   damaged[19] ^= 1;
   expect(() => inspect(damaged, 'bad.png', 'image/png')).toThrow(/checksum/);
   expect(() => stripEncodedMetadata(damaged, 'image/png')).toThrow(/checksum/);
- })
+ });
 });

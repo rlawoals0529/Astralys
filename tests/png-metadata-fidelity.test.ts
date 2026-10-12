@@ -80,7 +80,7 @@ describe('PNG metadata container fidelity', () => {
  it('rejects invalid PNG chunk type bytes and a lowercase reserved letter', () => {
   const source = Buffer.from(pngWithMetadataContainers());
   const firstChunkAfterIHDR = 33;
-  for (const type of ['teXt', 't1Xt']) {
+  for (const type of ['texT', 't1Xt']) {
    const damaged = Buffer.from(source);
    damaged.write(type, firstChunkAfterIHDR + 4, 'ascii');
    const size = damaged.readUInt32BE(firstChunkAfterIHDR);

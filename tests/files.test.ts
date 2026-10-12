@@ -45,7 +45,7 @@ it('strips a structurally valid EXIF orientation tag without changing JPEG frame
  tiff.write('II',0);tiff.writeUInt16LE(42,2);tiff.writeUInt32LE(8,4);
  tiff.writeUInt16LE(1,8);tiff.writeUInt16LE(0x0112,10);
  tiff.writeUInt16LE(3,12);tiff.writeUInt32LE(1,14);tiff.writeUInt16LE(6,18);
- const exif=Buffer.concat([Buffer.from('Exif\\0\\0'.replace(/\\0/g,'\\x00'),'binary'),tiff]);
+ const exif=Buffer.concat([Buffer.from([69,120,105,102,0,0]),tiff]);
  const app=Buffer.alloc(exif.length+4);app.set([255,225],0);app.writeUInt16BE(exif.length+2,2);app.set(exif,4);
  const frame=Buffer.from([255,192,0,8,8,0,1,0,2,1]);
  const scan=Buffer.from([255,218,0,2,1,2,3,255,217]);

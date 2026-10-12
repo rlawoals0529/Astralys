@@ -57,4 +57,23 @@ describe('PNG metadata container fidelity', () => {
   expect(() => inspect(damaged, 'bad.png', 'image/png')).toThrow(/checksum/);
   expect(() => stripEncodedMetadata(damaged, 'image/png')).toThrow(/checksum/);
  });
+
+ it('rejects an unknown PNG critical chunk even with a valid CRC', () => {
+  const source = pngWithMetadataContainers();
+  const ihdrEnd = 33;
+  const body = Buffer.from([1, 2, 3]);
+  const type = Buffer.from('ABCD');
+  let crc = 0xffffffff;
+  for (const byte of Buffer.concat([type, body])) {
+   crc ^= byte;
+   for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+  }
+  const extra = Buffer.alloc(12 + body.length);
+  extra.writeUInt32BE(body.length, 0);
+  extra.set(type, 4); extra.set(body, 8);
+  extra.writeUInt32BE((crc ^ 0xffffffff) >>> 0, extra.length - 4);
+  const invalid = Buffer.concat([source.subarray(0, ihdrEnd), extra, source.subarray(ihdrEnd)]);
+  expect(() => inspect(invalid, 'unknown.png', 'image/png')).toThrow(/unsupported critical chunk/);
+  expect(() => stripEncodedMetadata(invalid, 'image/png')).toThrow(/unsupported critical chunk/);
+ });
 });

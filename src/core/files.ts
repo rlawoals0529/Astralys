@@ -53,6 +53,12 @@ function pngChunks(a: Uint8Array): Chunk[] {
     if (type === 'IEND') { if (size !== 0 || offset !== a.length) fail(); break; }
   }
   if (chunks.filter(c=>c.type==='IHDR').length !== 1 || chunks[0]?.type !== 'IHDR' || chunks[0].size !== 13 || chunks.at(-1)?.type !== 'IEND' || !chunks.some(c => c.type === 'IDAT')) fail();
+  // PNG permits at most one palette, before image data, and requires contiguous IDAT chunks.
+  const palette = chunks.findIndex(c => c.type === 'PLTE');
+  const firstData = chunks.findIndex(c => c.type === 'IDAT');
+  const lastData = chunks.findLastIndex(c => c.type === 'IDAT');
+  if (chunks.filter(c => c.type === 'PLTE').length > 1 || (palette !== -1 && palette > firstData)) fail('This PNG has invalid critical chunk ordering. Export a fresh copy.');
+  if (chunks.slice(firstData, lastData + 1).some(c => c.type !== 'IDAT')) fail('This PNG has noncontiguous image data. Export a fresh copy.');
   return chunks;
 }
 function webpChunks(a: Uint8Array): Chunk[] {

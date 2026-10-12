@@ -883,3 +883,20 @@ test('16MP original export is rejected by raster admission and a smaller preset 
  await page.getByRole('button',{name:'Clear file'}).click();
  await expect(page.locator('#workspace')).toBeHidden();
 });
+
+// Simulate browser zoom by reducing the CSS viewport while retaining a desktop-sized
+// device scale factor. This checks responsive layout, not assistive-technology behavior.
+test('Photo export remains usable at narrow CSS viewports',async({page})=>{
+ await page.setViewportSize({width:320,height:720});
+ await page.locator('#sample').click();
+ await expect(page.locator('#workspace')).toBeVisible();
+ await expect(page.locator('#export-form')).toBeVisible();
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ const exportForm=page.locator('#export-form');
+ const bounds=await exportForm.boundingBox();
+ expect(bounds).not.toBeNull();
+ expect(bounds!.x).toBeGreaterThanOrEqual(0);
+ expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(321);
+ await page.getByRole('button',{name:'Create image'}).click();
+ await expect(page.locator('#download')).toBeVisible();
+});

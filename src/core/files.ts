@@ -36,6 +36,13 @@ function pngChunks(a: Uint8Array): Chunk[] {
     const size = d.getUint32(offset); const end = offset + 12 + size;
     if (end > a.length) fail();
     const type = text(a, offset + 4, 4);
+    // Validate each PNG chunk's CRC before trusting its structure or copying bytes.
+    let crc = 0xffffffff;
+    for (let i = offset + 4; i < end - 4; i++) {
+      crc ^= a[i];
+      for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+    }
+    if (((crc ^ 0xffffffff) >>> 0) !== d.getUint32(end - 4)) fail('This PNG has a damaged chunk checksum. Export a fresh copy.');
     if (chunks.length >= 4096) fail('Too many image chunks. Export a simpler copy.');
     chunks.push({ type, start: offset, data: offset + 8, end, size });
     offset = end;

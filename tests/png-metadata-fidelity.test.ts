@@ -114,4 +114,25 @@ describe('PNG metadata container fidelity', () => {
    expect(() => stripEncodedMetadata(bytes, 'image/png')).toThrow(/critical chunk ordering|noncontiguous image data/);
   }
  });
+
+ it('rejects invalid PNG color mode and palette combinations with valid CRC', () => {
+  const base = png(8, 4, false);
+  const ihdr = Buffer.from(base.subarray(16, 29));
+  const tail = base.subarray(33);
+  const signature = base.subarray(0, 8);
+  const make = (color: number, depth: number, palette?: Uint8Array) => {
+   const header = Buffer.from(ihdr); header[9] = color; header[8] = depth;
+   return Buffer.concat([signature, chunk('IHDR', header), ...(palette ? [chunk('PLTE', palette)] : []), tail]);
+  };
+  for (const bytes of [
+   make(3, 8),
+   make(2, 4),
+   make(0, 8, Buffer.from([0, 0, 0])),
+   make(3, 1, Buffer.from([0, 0, 0, 1, 1, 1, 2, 2, 2])),
+   make(2, 8, Buffer.from([0, 0])),
+  ]) {
+   expect(() => inspect(bytes, 'bad.png', 'image/png')).toThrow(/palette|header settings/);
+   expect(() => stripEncodedMetadata(bytes, 'image/png')).toThrow(/palette|header settings/);
+  }
+ });
 });

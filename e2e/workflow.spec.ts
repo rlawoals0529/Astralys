@@ -900,3 +900,29 @@ test('Photo export remains usable at narrow CSS viewports',async({page})=>{
  await page.getByRole('button',{name:'Create image'}).click();
  await expect(page.locator('#download')).toBeVisible();
 });
+
+test('sequential exports replace stale download URLs and clear revokes the final URL',async({page})=>{
+ await load(page);
+ const urls:string[]=[];
+ for(const mime of ['image/png','image/jpeg','image/webp','image/png']) {
+  await page.locator('#format').selectOption(mime);
+  await page.getByRole('button',{name:'Create image'}).click();
+  const download=page.locator('#download');
+  await expect(download).toBeVisible();
+  const url=await download.getAttribute('href');
+  expect(url).toMatch(/^blob:/);
+  expect(urls).not.toContain(url);
+  urls.push(url!);
+  if(urls.length>1) {
+   const previous=urls[urls.length-2];
+   await expect.poll(()=>page.evaluate(async u=>{
+    try {const response=await fetch(u);return response.ok;}catch{return false;}
+   },previous)).toBe(false);
+  }
+ }
+ await page.getByRole('button',{name:'Clear file'}).click();
+ await expect(page.locator('#workspace')).toBeHidden();
+ await expect.poll(()=>page.evaluate(async u=>{
+  try {return (await fetch(u)).ok;}catch{return false;}
+ },urls.at(-1)!)).toBe(false);
+});

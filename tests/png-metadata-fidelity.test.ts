@@ -23,4 +23,18 @@ describe('PNG metadata container fidelity', () => {
   // Structural metadata removal is not proof of correct ICC color rendering.
   expect(cleaned.length).toBeLessThan(source.length);
  });
+
+ it('is idempotent when stripping already sanitized PNG output', () => {
+  const once = stripEncodedMetadata(pngWithMetadataContainers(), 'image/png');
+  const twice = stripEncodedMetadata(once, 'image/png');
+  expect(Buffer.from(twice).equals(Buffer.from(once))).toBe(true);
+  expect(inspect(twice, 'clean.png', 'image/png').metadata).toEqual([]);
+ });
+ it('does not mutate the caller-owned PNG input bytes', () => {
+  const source = pngWithMetadataContainers();
+  const snapshot = Buffer.from(source);
+  const cleaned = stripEncodedMetadata(source, 'image/png');
+  expect(Buffer.from(source).equals(snapshot)).toBe(true);
+  expect(Buffer.from(cleaned).equals(snapshot)).toBe(false);
+ });
 });

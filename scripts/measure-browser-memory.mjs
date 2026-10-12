@@ -5,12 +5,17 @@
  * Run `node scripts/measure-browser-memory.mjs` after Playwright browsers are installed.
  * No input files, traces, or telemetry leave this machine.
  */
-import { chromium, firefox } from '@playwright/test';
+import { chromium, firefox, expect } from '@playwright/test';
+import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import { setInterval as every } from 'node:timers';
 
 const baseURL = process.env.ASTRALYS_BASE_URL ?? 'http://127.0.0.1:4173';
+const previewURL = new URL(baseURL);
+if (previewURL.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(previewURL.hostname) || previewURL.username || previewURL.password) {
+  throw new Error('ASTRALYS_BASE_URL must be an HTTP loopback preview; remote workloads are not allowed.');
+}
 const iterations = Number(process.env.ASTRALYS_MEMORY_RUNS ?? 5);
 const sampleIntervalMs = 100;
 const browserNames = (process.env.ASTRALYS_MEMORY_BROWSERS ?? 'chromium,firefox').split(',').map(x => x.trim());
@@ -81,10 +86,27 @@ for (const browserName of browserNames) {
 for (let run = 1; run <= iterations; run++) {
   const beforePids = new Set(readdirSync('/proc').filter(x => /^\d+$/.test(x)).map(Number));
   const browser = await ({chromium, firefox})[browserName].launch({ headless: true });
-  const browserPid = findBrowserRoot(browserName, beforePids);
   let sampling;
   try {
+    const browserPid = findBrowserRoot(browserName, beforePids);
     const page = await browser.newPage();
+    await page.addInitScript(() => {
+      const NativeWorker = window.Worker;
+      const create = URL.createObjectURL.bind(URL), revoke = URL.revokeObjectURL.bind(URL);
+      const tracker = { active: 0, started: 0, maxConcurrent: 0, created: 0, revoked: 0, live: new Set() };
+      window.Worker = class extends NativeWorker {
+        released = false;
+        constructor(...args) { super(...args); tracker.active++; tracker.started++; tracker.maxConcurrent = Math.max(tracker.maxConcurrent, tracker.active); }
+        terminate() { if (!this.released) { this.released = true; tracker.active--; } super.terminate(); }
+      };
+      URL.createObjectURL = value => { const url = create(value); tracker.created++; tracker.live.add(url); return url; };
+      URL.revokeObjectURL = url => { tracker.revoked++; tracker.live.delete(url); revoke(url); };
+      window.__memoryResources = tracker;
+    });
+    const resources = () => page.evaluate(() => {
+      const t = window.__memoryResources;
+      return { active: t.active, started: t.started, maxConcurrent: t.maxConcurrent, created: t.created, revoked: t.revoked, live: t.live.size };
+    });
     await page.goto(baseURL, { waitUntil: 'networkidle' });
     const baseline = totalRss(browserPid);
     const started = performance.now();
@@ -103,13 +125,38 @@ for (let run = 1; run <= iterations; run++) {
     });
     await page.locator('#file-input').setInputFiles({name:'memory-fixture.png',mimeType:'image/png',buffer:Buffer.from(fixture)});
     await page.locator('#workspace').waitFor({state:'visible'});
+    await expect(page.locator('#cancel')).toBeHidden();
     await page.locator('#width').fill('1024');
-    await page.getByRole('button',{name:'Create image'}).click();
-    await page.locator('#download').waitFor({state:'visible'});
+    const repeatedExports = [];
+    for (let exportNumber = 1; exportNumber <= 20; exportNumber++) {
+      const previous = await page.locator('#download').getAttribute('href');
+      await page.getByRole('button',{name:'Create image',exact:true}).click();
+      await expect(page.locator('#download')).toBeVisible();
+      await expect(page.locator('#download')).not.toHaveAttribute('href', previous ?? '');
+      await expect(page.locator('#cancel')).toBeHidden();
+      const state = await resources();
+      assert.equal(state.active, 0, 'Export must terminate its worker');
+      assert.equal(state.live, 3, 'Only original preview, current preview and output URLs may remain');
+      repeatedExports.push({ exportNumber, rssBytes: totalRss(browserPid), resources: state });
+    }
     await page.getByRole('button',{name:'Create PDF',exact:true}).click();
     await page.getByRole('link',{name:'Download PDF'}).waitFor({state:'visible'});
     const afterExport = totalRss(browserPid);
     const pages = Array.from({length: 8}, (_, i) => ({name: `page-${i+1}.png`, mimeType: 'image/png', buffer: Buffer.from(fixture)}));
+    await page.getByRole('button',{name:'Clear file'}).click();
+    const afterSingleClear = await resources();
+    assert.equal(afterSingleClear.active, 0); assert.equal(afterSingleClear.live, 0);
+    await page.locator('#batch-files').setInputFiles(pages);
+    await page.locator('#batch-size').selectOption('long-1200');
+    await page.locator('#batch-start').click();
+    await expect(page.locator('#batch-status')).toContainText('8 ready, 0 failed', {timeout: 120_000});
+    const batchResources = await resources();
+    assert.equal(batchResources.active, 0); assert.equal(batchResources.live, 8);
+    const afterBatch = totalRss(browserPid);
+    await page.locator('#batch-clear').click();
+    const batchCleared = await resources();
+    assert.equal(batchCleared.active, 0); assert.equal(batchCleared.live, 0);
+    const afterBatchClear = totalRss(browserPid);
     await page.locator('#pdf-page-files').setInputFiles(pages);
     await page.locator('#pdf-compose').click();
     await page.locator('#pdf-download').waitFor({state:'visible', timeout: 120_000});
@@ -117,19 +164,30 @@ for (let run = 1; run <= iterations; run++) {
     await page.locator('#pdf-clear').click();
     await page.locator('#pdf-result').waitFor({state:'hidden'});
     await page.locator('#pdf-page-files').setInputFiles(pages);
-    await page.locator('#pdf-compose').click();
-    await page.locator('#pdf-cancel').waitFor({state:'visible'});
-    await page.locator('#pdf-cancel').click();
+    // Dispatch start + cancel in the same task. The async worker cannot finish
+    // before cancellation; no arbitrary sleep or race with a fast fixture.
+    await page.evaluate(() => {
+      document.querySelector('#pdf-compose').click();
+      const cancel = document.querySelector('#pdf-cancel');
+      if (cancel.hidden) throw new Error('PDF job did not enter a cancellable state');
+      cancel.click();
+    });
+    await expect(page.locator('#pdf-status')).toContainText('PDF composition cancelled');
     await page.locator('#pdf-cancel').waitFor({state:'hidden'});
     await page.locator('#pdf-result').waitFor({state:'hidden'});
+    const cancelled = await resources();
+    assert.equal(cancelled.active, 0); assert.equal(cancelled.live, 0);
     const afterCancellation = totalRss(browserPid);
     await page.locator('#pdf-page-files').setInputFiles(pages);
     await page.locator('#pdf-compose').click();
     await page.locator('#pdf-download').waitFor({state:'visible',timeout:120_000});
     const afterCancellationRecovery = totalRss(browserPid);
     await page.locator('#pdf-clear').click();
-    await page.getByRole('button',{name:'Clear file'}).click();
     await page.locator('#workspace').waitFor({state:'hidden'});
+    const cleared = await resources();
+    assert.equal(cleared.active, 0); assert.equal(cleared.live, 0);
+    assert.equal(cleared.created, cleared.revoked);
+    assert.equal(cleared.maxConcurrent, 1, 'These workloads must remain sequential');
     const afterClear = totalRss(browserPid);
     await page.reload({ waitUntil: 'networkidle' });
     const afterReload = totalRss(browserPid);
@@ -137,9 +195,12 @@ for (let run = 1; run <= iterations; run++) {
     sampling = undefined;
     results.push({
       run, browserName, browserVersion: browser.version(), baselineRssBytes: baseline, ...sampled,
+      fixture: { width: 2048, height: 2048, encodedBytes: fixture.length, synthetic: true },
+      repeatedExports, afterBatchRssBytes: afterBatch, afterBatchClearRssBytes: afterBatchClear,
+      lifecycle: { afterSingleClear, batchResources, batchCleared, cancelled, cleared },
       afterExportRssBytes: afterExport, afterMultipagePdfRssBytes: afterMultipagePdf, afterCancellationRssBytes: afterCancellation, afterCancellationRecoveryRssBytes: afterCancellationRecovery, afterClearRssBytes: afterClear, afterReloadRssBytes: afterReload,
       elapsedMs: Math.round(performance.now() - started),
-      note: 'Local image, PDF, eight-page PDF and PDF cancellation attempt (may race completion); sampled peak is not a hard memory ceiling.'
+      note: '20 sequential image exports, single PDF, eight-image batch, eight-page PDF, immediate cancellation and recovery. Resource counts are observable page objects; summed process RSS double-counts shared pages and is not a hard memory ceiling or leak proof.'
     });
   } finally {
     sampling?.stop();

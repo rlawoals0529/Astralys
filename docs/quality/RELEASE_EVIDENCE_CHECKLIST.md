@@ -68,3 +68,15 @@ For each sample, copy the following fields into a private local test log. Never 
 **Transparency:** compare actual downloaded PNG/WebP pixels at a translucent sample point as well as a fully transparent point; distinguish unassociated RGB changes in zero-alpha pixels from visible compositing differences. For JPEG, verify the documented flattening background.
 
 **Automation boundaries:** structural metadata tests and synthetic RGBA browser tests are useful regressions but do not substitute for real-device, color-managed display, EXIF-orientation, or process-RSS evidence. Record each category independently and leave unperformed items unchecked.
+
+## Automated versus manual evidence ledger
+
+| Capability | Automated coverage | Remaining verification |
+| --- | --- | --- |
+| PNG metadata sanitization | Structural container removal and idempotence; pending PR #40 checks byte-identical IDAT preservation | Real embedded-profile image color appearance |
+| PNG hostile chunk handling | Pending PR #39 checks chunk CRC rejection and a CRC-valid dimension-bomb fixture | Confirm exact-head Chromium/Firefox CI before merge |
+| JPEG EXIF orientation privacy | Pending PR #41 checks removal of a synthetic Orientation=6 APP1 block without altering scan bytes | Browser-decoded orientation and actual downloaded pixel orientation for real photos |
+| Memory and object URL lifecycle | Browser export lifecycle and bounded input tests | Process RSS/peak memory on supported devices and repeated 20-export/batch/PDF runs |
+| Accessibility | Browser viewport and workflow coverage | Keyboard, screen-reader, zoom and real touch-device audit |
+
+This ledger is a planning snapshot, not a passing-test assertion: a pending PR does not count as merged or verified evidence. Update each row against actual CI and manual observations, with build SHAs, before any release claim.

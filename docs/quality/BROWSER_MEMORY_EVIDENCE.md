@@ -52,3 +52,14 @@ GitHub Actions [run 38180203501](https://github.com/rlawoals0529/Astralys/action
 | Firefox 153 | 719.0 MiB | 850.0 MiB | 819.5 MiB | 38 |
 
 The smoke run passed, including a PDF cancellation attempt and subsequent composition. One iteration cannot establish a regression threshold, leak, stable plateau, or deterministic cancellation. Run at least five fresh-browser iterations per browser before drawing comparative conclusions. The full JSON is retained as the `memory-harness-evidence` CI artifact (subject to GitHub retention).
+
+
+## Summarize five-trial RSS evidence locally
+
+After collecting five fresh-browser runs per browser with `ASTRALYS_MEMORY_RUNS=5 node scripts/measure-browser-memory.mjs > /tmp/astralys-memory.json`, run:
+
+```sh
+node scripts/summarize-browser-memory.mjs /tmp/astralys-memory.json
+```
+
+The local summary groups trials by browser **and version**, reports median and maximum baseline, sampled peak, after-clear, after-reload RSS and their deltas from baseline, and marks fewer than five distinct trials as insufficient for a five-trial review. It refuses malformed or missing numeric measurements rather than replacing them with zero. Keep the raw JSON as the source of truth, including per-export series and worker/Blob URL assertions; this summary is descriptive and does not prove leak freedom or set a regression threshold. The standard one-trial CI smoke result will intentionally be marked insufficient. No new service, telemetry, upload, or deployment is involved.

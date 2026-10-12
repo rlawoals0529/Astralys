@@ -6,3 +6,19 @@ export function png(width=8,height=4,metadata=true) {
  const pixels=Buffer.alloc(height*(width*4+1));for(let y=0;y<height;y++)for(let x=0;x<width;x++){const i=y*(width*4+1)+1+x*4;pixels.set([210,60,120,128],i);}
  return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',h),...(metadata?[chunk('tEXt',Buffer.from('Comment\0<script>alert(1)</script> GPS PRIVATE'))]:[]),chunk('IDAT',deflateSync(pixels)),chunk('IEND',new Uint8Array())]);
 }
+
+/** Synthetic PNG carrying both color-profile and textual metadata containers.
+ * This fixture intentionally uses a minimal, non-displayable ICC payload: tests
+ * structural inspection and stripping, not color-management correctness. */
+export function pngWithMetadataContainers() {
+ const base=png(8,4,false);
+ const signature=base.subarray(0,8);
+ const ihdrEnd=8+25;
+ return Buffer.concat([
+  signature,base.subarray(8,ihdrEnd),
+  chunk('iCCP',Buffer.from([112,114,111,102,105,108,101,0,0,120,156,3,0,0,0,0,1])),
+  chunk('eXIf',Buffer.from([73,73,42,0,8,0,0,0,0,0,0,0,0,0])),
+  chunk('tEXt',Buffer.from('Comment\\0private fixture marker')),
+  base.subarray(ihdrEnd),
+ ]);
+}

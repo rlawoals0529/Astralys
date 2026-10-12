@@ -928,3 +928,28 @@ test('sequential exports replace stale download URLs and clear revokes the final
   try {return (await fetch(u)).ok;}catch{return false;}
  },urls.at(-1)!)).toBe(false);
 });
+
+test('transparent PNG export retains decoded alpha and strips metadata',async({page})=>{
+ await load(page,'translucent.png','image/png',png(8,4,true));
+ await page.locator('#format').selectOption('image/png');
+ await page.getByRole('button',{name:'Create image'}).click();
+ await expect(page.locator('#download')).toBeVisible();
+ const waiting=page.waitForEvent('download');
+ await page.getByRole('link',{name:'Download image'}).click();
+ const output=await readFile((await (await waiting).path())!);
+ expect(inspect(output)).toMatchObject({mime:'image/png',width:8,height:4,metadata:[]});
+ const decoded=await page.evaluate(async bytes=>{
+  const bitmap=await createImageBitmap(new Blob([new Uint8Array(bytes)],{type:'image/png'}));
+  try {
+   const canvas=document.createElement('canvas');canvas.width=bitmap.width;canvas.height=bitmap.height;
+   const ctx=canvas.getContext('2d',{willReadFrequently:true})!;
+   ctx.drawImage(bitmap,0,0);
+   return [...ctx.getImageData(3,2,1,1).data];
+  } finally {bitmap.close();}
+ },Array.from(output));
+ expect(decoded[3]).toBeGreaterThanOrEqual(126);
+ expect(decoded[3]).toBeLessThanOrEqual(130);
+ expect(decoded[0]).toBeGreaterThan(195);
+ expect(decoded[1]).toBeGreaterThan(45);
+ expect(decoded[2]).toBeGreaterThan(105);
+});

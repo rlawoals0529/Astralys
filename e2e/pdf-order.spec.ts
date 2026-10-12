@@ -8,6 +8,20 @@ const pages=[
   {name:'second.png',mimeType:'image/png',buffer:png(12,6,false)},
   {name:'<img src=x onerror=alert(1)>.png',mimeType:'image/png',buffer:png(16,8,false)},
 ];
+test('loaded image workspace precedes optional multi-file tools in visual and keyboard order',async({page})=>{
+  await page.goto('/',{waitUntil:'domcontentloaded'});
+  await page.locator('#sample').click();
+  await expect(page.locator('#workspace')).toBeVisible();
+  for(const width of [320,768,1440]){
+    await page.setViewportSize({width,height:900});
+    const order=await page.evaluate(()=>{
+      const workspace=document.querySelector('#workspace')!,batch=document.querySelector('#batch-panel')!,pdf=document.querySelector('#pdf-pages')!;
+      return {dom:!!(workspace.compareDocumentPosition(batch)&Node.DOCUMENT_POSITION_FOLLOWING),
+        workspace:workspace.getBoundingClientRect().top,batch:batch.getBoundingClientRect().top,pdf:pdf.getBoundingClientRect().top};
+    });
+    expect(order.dom).toBe(true);expect(order.workspace).toBeLessThan(order.batch);expect(order.batch).toBeLessThan(order.pdf);
+  }
+});
 test.beforeEach(async({page})=>{
   await page.goto('/',{waitUntil:'domcontentloaded'});
   await expect(page.locator('html')).toHaveAttribute('data-app-ready','true');

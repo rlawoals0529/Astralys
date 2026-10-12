@@ -387,28 +387,74 @@ el('batch-start').onclick=async()=>{
 // Compose from freshly sanitized JPEG pages. No existing PDF input is opened or parsed.
 const pdfInput=input('pdf-page-files');
 const pdfStatus=(message:string)=>{el('pdf-status').textContent=message;};
+function invalidatePdfResult(){
+  pdfPagesUrl.clear();el('pdf-download').removeAttribute('href');el('pdf-result').hidden=true;
+}
+function renderPdfOrder(){
+  const list=el<HTMLOListElement>('pdf-page-order');list.replaceChildren();
+  pdfFiles.forEach((source,index)=>{
+    const row=document.createElement('li'),name=document.createElement('span'),actions=document.createElement('div');
+    name.textContent=source.name;name.className='pdf-page-name';actions.className='pdf-page-actions';
+    for(const action of ['up','down','remove'] as const){
+      const button=document.createElement('button');button.type='button';button.className='secondary';
+      button.textContent=action==='up'?'Move up':action==='down'?'Move down':'Remove';
+      button.dataset.pageAction=action;
+      button.setAttribute('aria-label',action==='remove'?`Remove page ${index+1}`:`Move page ${index+1} ${action}`);
+      button.disabled=pdfBusy||(action==='up'&&index===0)||(action==='down'&&index===pdfFiles.length-1);
+      button.onclick=()=>{
+        if(pdfBusy)return;
+        let next=index;
+        if(action==='remove')pdfFiles.splice(index,1);
+        else {
+          next=index+(action==='up'?-1:1);
+          if(next<0||next>=pdfFiles.length)return;
+          [pdfFiles[index],pdfFiles[next]]=[pdfFiles[next],pdfFiles[index]];
+        }
+        invalidatePdfResult();syncPdfComposer();renderPdfOrder();
+        pdfStatus(`${pdfFiles.length} image page(s) selected. ${action==='remove'?'Page removed.':'Page order updated.'} ${pdfFiles.length<2?'Choose at least two images to compose a PDF.':'Create the PDF to use this order.'}`);
+        // Restore keyboard focus to the moved page or the next remaining row.
+        const target=list.children[Math.min(next,pdfFiles.length-1)];
+        const preferred=target?.querySelector<HTMLButtonElement>(`button[data-page-action="${action}"]:not(:disabled)`);
+        (preferred??target?.querySelector<HTMLButtonElement>('button:not(:disabled)')??pdfInput).focus();
+      };
+      actions.append(button);
+    }
+    row.append(name,actions);list.append(row);
+  });
+}
 function syncPdfComposer(){
   pdfInput.disabled=pdfBusy;
   el<HTMLSelectElement>('pdf-page-size').disabled=pdfBusy;
   el<HTMLButtonElement>('pdf-compose').disabled=pdfBusy||pdfFiles.length<2;
   el('pdf-cancel').hidden=!pdfBusy;
+  // Keep nodes stable during processing so focus is not discarded.
+  el('pdf-page-order').querySelectorAll<HTMLButtonElement>('button').forEach(button=>{
+    const row=button.closest('li')!;
+    button.disabled=pdfBusy||(button.dataset.pageAction==='up'&&!row.previousElementSibling)||(button.dataset.pageAction==='down'&&!row.nextElementSibling);
+  });
 }
 function clearPdfComposer(message=true){
   ++pdfSerial;pdfPageRunner.cancel();pdfComposeRunner.cancel();pdfBusy=false;
   pdfFiles=[];pdfPagesUrl.clear();
   pdfInput.value='';el('pdf-download').removeAttribute('href');el('pdf-result').hidden=true;
-  syncPdfComposer();if(message)pdfStatus('PDF cleared. Choose 2 to 8 still images.');
+  renderPdfOrder();syncPdfComposer();if(message)pdfStatus('PDF cleared. Choose 2 to 8 still images.');
 }
 pdfInput.onchange=()=>{
   if(pdfBusy)return;
   pdfPagesUrl.clear();el('pdf-download').removeAttribute('href');el('pdf-result').hidden=true;
   const selected=Array.from(pdfInput.files??[]),total=selected.reduce((n,f)=>n+f.size,0);
+  // The array owns the selection; release FileList references so removal can free files.
+  pdfInput.value='';
   if(selected.length<2||selected.length>8||total>48*1024*1024){
     pdfFiles=[];pdfInput.value='';pdfStatus('Choose 2 to 8 still images, up to 48 MiB of combined input.');
   } else {
-    pdfFiles=selected;pdfStatus(pdfFiles.length+' image pages selected in input order. Ready to create a local PDF.');
+    pdfFiles=selected;pdfStatus(pdfFiles.length+' image pages selected. Review the order below, then create a local PDF.');
   }
-  syncPdfComposer();
+  renderPdfOrder();syncPdfComposer();
+};
+el<HTMLSelectElement>('pdf-page-size').onchange=()=>{
+  if(pdfBusy)return;
+  invalidatePdfResult();pdfStatus('Page resolution changed. Create the PDF again to use this setting.');
 };
 el('pdf-clear').onclick=()=>clearPdfComposer();
 el('pdf-cancel').onclick=()=>{

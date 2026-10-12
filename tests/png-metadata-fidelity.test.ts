@@ -37,4 +37,17 @@ describe('PNG metadata container fidelity', () => {
   expect(Buffer.from(source).equals(snapshot)).toBe(true);
   expect(Buffer.from(cleaned).equals(snapshot)).toBe(false);
  });
+
+ it('preserves valid CRCs and exact image bytes across metadata removal', () => {
+  const original = pngWithMetadataContainers();
+  const clean = stripEncodedMetadata(original, 'image/png');
+  const originalIdat = original.indexOf(Buffer.from('IDAT'));
+  const cleanIdat = Buffer.from(clean).indexOf(Buffer.from('IDAT'));
+  expect(originalIdat).toBeGreaterThan(0);
+  expect(cleanIdat).toBeGreaterThan(0);
+  const originalLength = original.readUInt32BE(originalIdat - 4);
+  const cleanLength = Buffer.from(clean).readUInt32BE(cleanIdat - 4);
+  expect(cleanLength).toBe(originalLength);
+  expect(Buffer.from(clean).subarray(cleanIdat, cleanIdat + cleanLength + 8).equals(original.subarray(originalIdat, originalIdat + originalLength + 8))).toBe(true);
+ });
 });

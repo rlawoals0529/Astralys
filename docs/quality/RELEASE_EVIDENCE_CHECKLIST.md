@@ -39,3 +39,32 @@ For each image:
 - [ ] Release issue #8 and explicit owner approval recorded **before** any public deployment, DNS, visibility change or remote-upload feature.
 
 Document evidence and outstanding gaps; do not claim manual device, screen-reader, or real-photo verification from synthetic CI results.
+
+## Repeatable fidelity evidence record
+
+For each sample, copy the following fields into a private local test log. Never commit private photos, original EXIF GPS data, or screenshots that disclose personal information.
+
+| Field | Value |
+| --- | --- |
+| Build commit SHA | |
+| Sample identifier and permission/source | |
+| Input SHA-256, bytes, MIME and decoded dimensions | |
+| EXIF orientation (1–8 or absent) | |
+| ICC profile name / hash (or absent) | |
+| Browser, version, OS, device | |
+| Viewer used for reference and its color-management settings | |
+| Export format, dimensions and adjustment settings | |
+| Export SHA-256, bytes, MIME and dimensions | |
+| Expected versus observed orientation | |
+| Expected versus observed color/alpha behavior | |
+| EXIF/XMP/ICC metadata present in output | |
+| Pixel comparison method and tolerance, if applicable | |
+| Outcome, reproducible steps and issue link | |
+
+**Orientation:** use a permission-cleared asymmetric photograph with an explicit EXIF orientation value. Test portrait and landscape display, original-size export, crop/rotate interaction, and final downloaded pixels. Record whether the browser decoder already applied orientation; do not infer correct output from width/height alone.
+
+**Color management:** compare an embedded-profile JPEG against a trusted color-managed viewer under matching display settings. Record profile bytes/hash, color space, rendering intent if available, and any observable color shift. Do not claim that metadata removal preserves color appearance unless actual decoded output has been checked. For reproducible automated tests, use appropriately licensed, small, valid ICC samples rather than arbitrary invalid profile bytes.
+
+**Transparency:** compare actual downloaded PNG/WebP pixels at a translucent sample point as well as a fully transparent point; distinguish unassociated RGB changes in zero-alpha pixels from visible compositing differences. For JPEG, verify the documented flattening background.
+
+**Automation boundaries:** structural metadata tests and synthetic RGBA browser tests are useful regressions but do not substitute for real-device, color-managed display, EXIF-orientation, or process-RSS evidence. Record each category independently and leave unperformed items unchecked.

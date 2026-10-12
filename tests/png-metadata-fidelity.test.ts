@@ -23,4 +23,12 @@ describe('PNG metadata container fidelity', () => {
   // Structural metadata removal is not proof of correct ICC color rendering.
   expect(cleaned.length).toBeLessThan(source.length);
  });
+
+ it('rejects corrupted PNG chunk checksums before inspecting or sanitizing', () => {
+  const damaged = Buffer.from(pngWithMetadataContainers());
+  // Flip one byte in IHDR dimensions while retaining its original CRC.
+  damaged[19] ^= 1;
+  expect(() => inspect(damaged, 'bad.png', 'image/png')).toThrow(/checksum/);
+  expect(() => stripEncodedMetadata(damaged, 'image/png')).toThrow(/checksum/);
+ });
 });

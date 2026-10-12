@@ -36,6 +36,8 @@ function pngChunks(a: Uint8Array): Chunk[] {
     const size = d.getUint32(offset); const end = offset + 12 + size;
     if (end > a.length) fail();
     const type = text(a, offset + 4, 4);
+    // Unknown critical chunks cannot be safely decoded or silently discarded.
+    if (/^[A-Z]/.test(type) && !['IHDR', 'PLTE', 'IDAT', 'IEND'].includes(type)) fail('This PNG contains an unsupported critical chunk. Export a compatible copy.');
     // Validate each PNG chunk's CRC before trusting its structure or copying bytes.
     let crc = 0xffffffff;
     for (let i = offset + 4; i < end - 4; i++) {

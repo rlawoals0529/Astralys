@@ -56,7 +56,7 @@ function pngChunks(a: Uint8Array): Chunk[] {
   // PNG permits at most one palette, before image data, and requires contiguous IDAT chunks.
   const palette = chunks.findIndex(c => c.type === 'PLTE');
   const firstData = chunks.findIndex(c => c.type === 'IDAT');
-  const lastData = chunks.findLastIndex(c => c.type === 'IDAT');
+  const lastData = chunks.reduce((last, c, i) => c.type === 'IDAT' ? i : last, -1);
   if (chunks.filter(c => c.type === 'PLTE').length > 1 || (palette !== -1 && palette > firstData)) fail('This PNG has invalid critical chunk ordering. Export a fresh copy.');
   if (chunks.slice(firstData, lastData + 1).some(c => c.type !== 'IDAT')) fail('This PNG has noncontiguous image data. Export a fresh copy.');
   return chunks;

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { chunk, png } from './fixtures';
 import { inspect, stripEncodedMetadata } from '../src/core/files';
 import { pngWithMetadataContainers } from './fixtures';
 
@@ -93,6 +94,24 @@ describe('PNG metadata container fidelity', () => {
    damaged.writeUInt32BE((crc ^ 0xffffffff) >>> 0, end - 4);
    expect(() => inspect(damaged, 'bad.png', 'image/png')).toThrow(/invalid chunk type/);
    expect(() => stripEncodedMetadata(damaged, 'image/png')).toThrow(/invalid chunk type/);
+  }
+ });
+
+ it('rejects duplicate palettes, late palettes and separated IDAT chunks', () => {
+  const base = png(8, 4, false);
+  const header = base.subarray(0, 33);
+  const imageData = base.subarray(33, base.length - 12);
+  const end = base.subarray(base.length - 12);
+  const palette = chunk('PLTE', Buffer.from([0, 0, 0]));
+  const note = chunk('tEXt', Buffer.from('Note\\0between IDAT'));
+  const cases = [
+   Buffer.concat([header, palette, palette, imageData, end]),
+   Buffer.concat([header, imageData, palette, end]),
+   Buffer.concat([header, imageData, note, imageData, end]),
+  ];
+  for (const bytes of cases) {
+   expect(() => inspect(bytes, 'bad.png', 'image/png')).toThrow(/critical chunk ordering|noncontiguous image data/);
+   expect(() => stripEncodedMetadata(bytes, 'image/png')).toThrow(/critical chunk ordering|noncontiguous image data/);
   }
  });
 });

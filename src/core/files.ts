@@ -1,3 +1,4 @@
+import { exifOrientation } from './exif';
 export const MAX_FILE_BYTES = 20 * 1024 * 1024;
 export const MAX_PIXELS = 16_000_000;
 export const MAX_DIMENSION = 8192;
@@ -110,11 +111,21 @@ export function inspect(a: Uint8Array, name = '', declared = ''): ImageInfo {
   } else if (mime === 'image/jpeg') {
     const segments=jpegSegments(a);
     if(segments.filter(c=>[0xc0,0xc1,0xc2].includes(parseInt(c.type,16))).length!==1) fail();
+    let orientation = 1;
+    let hasExif = false;
     for (const c of segments) {
       const m = parseInt(c.type, 16);
+      if (m === 0xe1 && c.size >= 6 && text(a, c.data, 6) === 'Exif\0\0') {
+        if (hasExif) fail('Multiple EXIF containers are ambiguous. Export a fresh copy of this image.');
+        hasExif = true;
+        orientation = exifOrientation(a.subarray(c.data + 6, c.end));
+      }
       if ([0xc0,0xc1,0xc2].includes(m)) { if (c.size < 6) fail(); height = d.getUint16(c.data + 1); width = d.getUint16(c.data + 3); }
       if ((m >= 0xe1 && m <= 0xef) || m === 0xfe) metadata.push(m === 0xfe ? 'Comment' : `APP${m - 0xe0}`);
     }
+    // createImageBitmap applies EXIF before exposing dimensions. Plan, UI and
+    // decoded-size validation must all use that same display-oriented geometry.
+    if (orientation >= 5) [width, height] = [height, width];
   } else if (mime === 'image/webp') {
     for (const c of webpChunks(a)) {
       const i = c.data;

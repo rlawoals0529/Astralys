@@ -300,7 +300,7 @@ function selectCategory(c:string,focus=true) {
   // Do not hide the only cancellation controls while a job is running.
   if(busy||batchBusy||pdfBusy){status('Finish or cancel the current job before switching workspaces.',true);return;}
   document.body.dataset.category=c;
-  for(const b of document.querySelectorAll<HTMLElement>('[data-category]')){const active=b.dataset.category===c;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
+  for(const b of document.querySelectorAll<HTMLButtonElement>('button[data-category]')){const active=b.dataset.category===c;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
   el('heading').textContent=headings[c][0];el('intro').textContent=headings[c][1];el('eyebrow').textContent=c==='home'?'YOUR LOCAL WORKSPACE':c.toUpperCase()+' / WORKSPACE';
   el('export-form').querySelector('h3')!.textContent=c==='pdf'?'Prepare a single page':c==='creative'?'Export your edit':'Choose image output';
   const detail=categories[c];el('category-panel').hidden=!detail;if(detail){el('category-title').textContent=detail[0];el('category-copy').textContent=detail[1];}
@@ -312,7 +312,7 @@ function selectCategory(c:string,focus=true) {
   document.title='Astralys — '+(c==='home'?'Transform':c==='creative'?'Photo Studio':c[0].toUpperCase()+c.slice(1));
   if(focus)el('main').focus();
 }
-for(const button of document.querySelectorAll<HTMLButtonElement>('[data-category], [data-go]'))button.onclick=()=>selectCategory(button.dataset.category??button.dataset.go!);
+for(const button of document.querySelectorAll<HTMLButtonElement>('button[data-category], button[data-go]'))button.onclick=()=>selectCategory(button.dataset.category??button.dataset.go!);
 for(const button of document.querySelectorAll<HTMLButtonElement>('[data-focus]'))button.onclick=()=>el(button.dataset.focus!).focus();
 document.querySelector<HTMLAnchorElement>('.brand')!.onclick=e=>{e.preventDefault();selectCategory('home');};
 el('sample').onclick=async()=> {

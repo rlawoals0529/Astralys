@@ -151,7 +151,7 @@
   #export-form input[type="checkbox"]{width:20px;height:20px;min-width:20px;flex:0 0 20px}
   #export-form .checkbox{min-height:44px;gap:10px}
 }
-:root .workflow-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:26px}
+.workflow-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:26px}
 .workflow-card{text-align:left;border:1px solid var(--line);border-radius:10px;background:#faf9f6;padding:22px;min-width:0}
 .workflow-card:hover{background:#eee8f5;border-color:#b6a6c2}.workflow-card span{font-size:10px;letter-spacing:1px;color:var(--muted)}.workflow-card strong{display:block;font:24px Georgia,serif;margin:14px 0}.workflow-card p,.workflow-guide{font-size:13px;line-height:1.8;color:#4e515d}.workflow-card p{margin:0}
 .category-panel{border-left:3px solid var(--accent);padding:8px 18px;margin:0 0 24px;font-size:12px;line-height:1.8}.category-panel h2{font-size:16px;margin:0}.category-panel p{margin:5px 0 0}

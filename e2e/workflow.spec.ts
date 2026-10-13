@@ -225,6 +225,8 @@ test('crop preview drag and keyboard sliders reposition real exported pixels',as
  await expect(page.locator('#crop-x')).toHaveValue('50');
  await expect(page.locator('#crop-y')).toBeDisabled();
  const img=page.locator('#preview');
+ await expect(page.locator('#cancel')).toBeHidden();
+ await expect.poll(()=>img.evaluate(image=>(image as HTMLImageElement).complete&&(image as HTMLImageElement).naturalWidth===4)).toBe(true);
  const original=await img.getAttribute('src');
  const box=await img.boundingBox();expect(box).toBeTruthy();
  const x=box!.x+box!.width/2,y=box!.y+box!.height/2;
@@ -328,6 +330,14 @@ test('keyboard navigation and focus, category honesty, reduced motion and mobile
  await page.getByRole('button',{name:'PDF',exact:true}).focus();await page.keyboard.press('Enter');await expect(page.locator('#category-panel')).toContainText('Existing PDFs are not opened, parsed, merged or modified.');
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(await page.evaluate(()=>matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
+});
+test('media source actions are explicit, safe and invalidated when edited',async({page})=>{
+ const requests:string[]=[];page.on('request',r=>{if(['fetch','xhr'].includes(r.resourceType()))requests.push(r.url());});
+ await page.getByRole('button',{name:'Paste a link'}).click();await page.locator('#media-url').fill('https://youtu.be/abc');await page.getByRole('button',{name:'Check link'}).click();
+ const original=page.getByRole('link',{name:'Open original on YouTube'});await expect(original).toHaveAttribute('href','https://youtu.be/abc');await expect(original).toHaveAttribute('rel','noopener noreferrer');await expect(original).toHaveAttribute('target','_blank');
+ await expect(page.getByRole('link',{name:'Owner download instructions'})).toHaveAttribute('href','https://support.google.com/youtube/answer/56100');
+ await page.locator('#media-url').fill('https://media.example/clip.mp4');await expect(page.locator('#link-result')).toBeHidden();await page.getByRole('button',{name:'Check link'}).click();await expect(page.getByRole('link',{name:'Open supplied media URL'})).toHaveAttribute('href','https://media.example/clip.mp4');
+ await page.locator('#media-url').fill('https://127.0.0.1/clip.mp4');await page.getByRole('button',{name:'Check link'}).click();await expect(page.locator('#link-result a')).toHaveCount(0);expect(requests).toEqual([]);
 });
 test('production CSP blocks network and inline script, workers still function',async({page,request})=>{
  const response=await request.get('/');expect(response.headers()['content-security-policy']).toContain("connect-src 'none'");expect(response.headers()['content-security-policy']).not.toContain('unsafe-eval');expect(response.headers()['x-content-type-options']).toBe('nosniff');

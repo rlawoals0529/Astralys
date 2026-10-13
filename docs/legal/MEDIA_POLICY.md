@@ -1,6 +1,8 @@
 # Media policy and release gate
 
-Reviewed 2026-10-09. Engineering/product decision, not formal legal advice. All remote providers remain disabled. Pasting a URL classifies it locally; it triggers **no network request**, thumbnail fetch, metadata request, DNS lookup, or download. No YouTube API client, resolver, cookie import, user-defined command flags or yt-dlp integration exists.
+Reviewed 2026-10-12. Engineering/product decision, not formal legal advice. All remote processing providers remain disabled. Pasting/checking a URL classifies it locally; it triggers **no network request**, thumbnail fetch, metadata request, DNS lookup, or download. Explicit external links open a new tab with no opener or referrer and contact the chosen destination only when clicked. No YouTube API client, resolver, cookie import, user-defined command flags or yt-dlp integration exists.
+
+YouTube results offer the original page, official owner-download instructions, Studio and Takeout. Owner instructions were rechecked against https://support.google.com/youtube/answer/56100: Content → video menu → Download, with provider restrictions and availability; other users' videos are not offered for download. Direct HTTPS media URLs may offer **Open supplied media URL**, never a guaranteed download. No rights, MIME type, redirect destination or server behavior is verified. Local/private-looking destinations and googlevideo stream hosts receive no link action. This navigation check is not an SSRF validator; no fetch/proxy/backend has been enabled. Users must trust the source and have permission under its permitted retrieval method.
 
 | Class | Example | V1 | Conditions for a future implementation |
 | --- | --- | --- | --- |

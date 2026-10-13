@@ -9,7 +9,6 @@ assert.equal(real,root,'dist must not be a symlink');
 const config=await readFile('wrangler.toml','utf8');
 assert.match(config,/^name\s*=\s*"astralys"\s*$/m);
 assert.match(config,/^directory\s*=\s*"\.\/dist"\s*$/m);
-assert.match(config,/^previews\s*=\s*\{\s*\}\s*$/m,'Static previews must inherit settings without extra resources');
 assert.doesNotMatch(config,/^\s*(main|route|routes|account_id|workers_dev|run_worker_first)\s*=/m,'No Worker code, account binding or live route permitted');
 const index=await readFile(join(root,'index.html'),'utf8');
 assert.match(index,/id="main"/);

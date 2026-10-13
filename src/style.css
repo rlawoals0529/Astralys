@@ -160,3 +160,5 @@
 body[data-input="link"] #batch-panel,body[data-input="link"] #pdf-pages,body[data-input="link"] #image-workflow,body[data-input="link"] #principles{display:none}
 @media(max-width:650px){.workflow-cards,.pdf-guide,.video-guide{grid-template-columns:1fr}.workflow-guide{padding:18px}.workflow-guide th,.workflow-guide td{padding:6px;font-size:11px}.workflow-card{padding:18px}}
 body[data-category="pdf"] #export,body[data-category="pdf"] #suggestions,body[data-category="pdf"] label[for="format"],body[data-category="pdf"] #format,body[data-category="pdf"] #format-help,body[data-category="images"] #pdf-export{display:none}
+body.has-file:not([data-category="home"]) .hero{display:block}
+body:not([data-category="home"]) #principles{display:none}

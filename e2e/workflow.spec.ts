@@ -340,7 +340,7 @@ test('category workspaces expose contextual controls and preserve the edited ima
  await page.locator('[data-category="pdf"]').click();await expect(page.locator('#batch-panel')).toBeHidden();await expect(page.locator('#pdf-pages')).toBeVisible();await page.getByRole('button',{name:'Choose page images'}).click();await expect(page.locator('#pdf-page-files')).toBeFocused();
  await page.locator('[data-category="video"]').click();await expect(page.locator('#link-entry')).toBeVisible();await expect(page.locator('#file-entry')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();
  await page.locator('[data-category="audio"]').click();await expect(page.locator('[data-surface="audio"]')).toContainText('original WAV');
- for(const c of ['documents','archives','data']){await page.locator(`[data-category="${c}"]`).click();await expect(page.locator('#entry-panel')).toBeHidden();await expect(page.locator(`[data-surface="${c}"]`)).toBeVisible();await expect(page.locator('#main')).toBeFocused();}
+ for(const c of ['documents','archives','data']){await page.locator(`[data-category="${c}"]`).click();await expect(page.locator('#heading')).toBeVisible();await expect(page.locator('#entry-panel')).toBeHidden();await expect(page.locator(`[data-surface="${c}"]`)).toBeVisible();await expect(page.locator('#main')).toBeFocused();}
  await page.locator('[data-category="creative"]').click();await expect(page.locator('#width')).toHaveValue('4');await expect(page.locator('#file-name')).toHaveText('source.png');await expect(page.getByRole('button',{name:'Undo',exact:true})).toBeEnabled();
  await page.getByRole('button',{name:'Create image'}).click();await expect(page.locator('#download')).toBeVisible();
 });

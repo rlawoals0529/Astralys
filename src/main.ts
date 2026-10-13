@@ -302,6 +302,7 @@ function selectCategory(c:string,focus=true) {
   document.body.dataset.category=c;
   for(const b of document.querySelectorAll<HTMLElement>('[data-category]')){const active=b.dataset.category===c;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
   el('heading').textContent=headings[c][0];el('intro').textContent=headings[c][1];el('eyebrow').textContent=c==='home'?'YOUR LOCAL WORKSPACE':c.toUpperCase()+' / WORKSPACE';
+  el('export-form').querySelector('h3')!.textContent=c==='pdf'?'Prepare a single page':c==='creative'?'Export your edit':'Choose image output';
   const detail=categories[c];el('category-panel').hidden=!detail;if(detail){el('category-title').textContent=detail[0];el('category-copy').textContent=detail[1];}
   for(const surface of document.querySelectorAll<HTMLElement>('[data-surface]'))surface.hidden=surface.dataset.surface!==c;
   const images=['home','images','creative','pdf'].includes(c),media=c==='video'||c==='audio';

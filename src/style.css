@@ -151,3 +151,14 @@
   #export-form input[type="checkbox"]{width:20px;height:20px;min-width:20px;flex:0 0 20px}
   #export-form .checkbox{min-height:44px;gap:10px}
 }
+.workflow-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:26px}
+.workflow-card{text-align:left;border:1px solid var(--line);border-radius:10px;background:#faf9f6;padding:22px;min-width:0}
+.workflow-card:hover{background:#eee8f5;border-color:#b6a6c2}.workflow-card span{font-size:10px;letter-spacing:1px;color:var(--muted)}.workflow-card strong{display:block;font:24px Georgia,serif;margin:14px 0}.workflow-card p,.workflow-guide{font-size:13px;line-height:1.8;color:#4e515d}.workflow-card p{margin:0}
+.category-panel{border-left:3px solid var(--accent);padding:8px 18px;margin:0 0 24px;font-size:12px;line-height:1.8}.category-panel h2{font-size:16px;margin:0}.category-panel p{margin:5px 0 0}
+.workflow-guide{padding:24px;background:#faf9f6;border:1px solid var(--line);border-radius:10px;margin-bottom:24px}.workflow-guide h3{margin-top:0}.workflow-guide li{padding:6px 0}.workflow-guide ol{margin:0;padding-left:22px}.workflow-guide table{width:100%;border-collapse:collapse;table-layout:fixed}.workflow-guide caption{text-align:left;font:24px Georgia,serif;margin-bottom:16px}.workflow-guide th,.workflow-guide td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:10px;overflow-wrap:anywhere}.workflow-guide th:first-child{width:20%}
+.photo-guide{background:#eee8f5}.pdf-guide,.video-guide{display:grid;grid-template-columns:1fr 1fr;gap:30px}.pdf-guide{border-top:4px solid #68825d}.video-guide{border-top:4px solid #aa8451}.archive-guide details{margin:14px 0;padding:14px;background:#f1eee6}.data-guide dl{grid-template-columns:60px 1fr;font-size:13px;line-height:1.8}.data-guide dd{text-align:left}.document-guide strong{display:block}
+body[data-input="link"] #batch-panel,body[data-input="link"] #pdf-pages,body[data-input="link"] #image-workflow,body[data-input="link"] #principles{display:none}
+@media(max-width:650px){.workflow-cards,.pdf-guide,.video-guide{grid-template-columns:1fr}.workflow-guide{padding:18px}.workflow-guide th,.workflow-guide td{padding:6px;font-size:11px}.workflow-card{padding:18px}}
+body[data-category="pdf"] #export,body[data-category="pdf"] #suggestions,body[data-category="pdf"] label[for="format"],body[data-category="pdf"] #format,body[data-category="pdf"] #format-help,body[data-category="images"] #pdf-export{display:none}
+body.has-file:not([data-category="home"]) .hero{display:block}
+body:not([data-category="home"]) #principles{display:none}

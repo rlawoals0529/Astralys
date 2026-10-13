@@ -329,6 +329,14 @@ test('keyboard navigation and focus, category honesty, reduced motion and mobile
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(await page.evaluate(()=>matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
 });
+test('media source actions are explicit, safe and invalidated when edited',async({page})=>{
+ const requests:string[]=[];page.on('request',r=>{if(['fetch','xhr'].includes(r.resourceType()))requests.push(r.url());});
+ await page.getByRole('button',{name:'Paste a link'}).click();await page.locator('#media-url').fill('https://youtu.be/abc');await page.getByRole('button',{name:'Check link'}).click();
+ const original=page.getByRole('link',{name:'Open original on YouTube'});await expect(original).toHaveAttribute('href','https://youtu.be/abc');await expect(original).toHaveAttribute('rel','noopener noreferrer');await expect(original).toHaveAttribute('target','_blank');
+ await expect(page.getByRole('link',{name:'Owner download instructions'})).toHaveAttribute('href','https://support.google.com/youtube/answer/56100');
+ await page.locator('#media-url').fill('https://media.example/clip.mp4');await expect(page.locator('#link-result')).toBeHidden();await page.getByRole('button',{name:'Check link'}).click();await expect(page.getByRole('link',{name:'Open supplied media URL'})).toHaveAttribute('href','https://media.example/clip.mp4');
+ await page.locator('#media-url').fill('https://127.0.0.1/clip.mp4');await page.getByRole('button',{name:'Check link'}).click();await expect(page.locator('#link-result a')).toHaveCount(0);expect(requests).toEqual([]);
+});
 test('production CSP blocks network and inline script, workers still function',async({page,request})=>{
  const response=await request.get('/');expect(response.headers()['content-security-policy']).toContain("connect-src 'none'");expect(response.headers()['content-security-policy']).not.toContain('unsafe-eval');expect(response.headers()['x-content-type-options']).toBe('nosniff');
  const blocked=await page.evaluate(async()=>{try{await fetch('https://example.com/');return false;}catch{return true;}});expect(blocked).toBe(true);await page.evaluate(()=>{const s=document.createElement('script');s.textContent="document.documentElement.dataset.inlineScriptRan='yes'";document.head.append(s);});await expect(page.locator('html')).not.toHaveAttribute('data-inline-script-ran','yes');await load(page);

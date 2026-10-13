@@ -281,7 +281,8 @@ previewImage.onpointerup=e=>{if(!finishRedactionDrag(e,true))endCropDrag(e,true)
 previewImage.onpointercancel=e=>{if(!finishRedactionDrag(e,false))endCropDrag(e,false);};
 function inputTab(link:boolean) {el('file-entry').hidden=link;el('link-entry').hidden=!link;for(const [id,active] of [['link-tab',link],['file-tab',!link]] as const){el(id).classList.toggle('selected',active);el(id).setAttribute('aria-pressed',String(active));}if(link)input('media-url').focus();}
 el('file-tab').onclick=()=>inputTab(false);el('link-tab').onclick=()=>inputTab(true);
-el('link-entry').onsubmit=e=>{e.preventDefault();const result=el('link-result');result.replaceChildren();result.hidden=false;try{const c=classifyMediaLink(input('media-url').value);const heading=document.createElement('h2'),body=document.createElement('p');heading.textContent=c.title;body.textContent=c.message;result.append(heading,body);}catch(error){result.textContent=(error as Error).message;}};
+el('link-entry').onsubmit=e=>{e.preventDefault();const result=el('link-result');result.replaceChildren();result.hidden=false;try{const c=classifyMediaLink(input('media-url').value);const heading=document.createElement('h2'),body=document.createElement('p');heading.textContent=c.title;body.textContent=c.message;result.append(heading,body);for(const action of c.links??[]){const a=document.createElement('a');a.textContent=action.label+' ↗';a.href=action.href;a.target='_blank';a.rel='noopener noreferrer';a.className='source-link';result.append(a);}}catch(error){result.textContent=(error as Error).message;}};
+input('media-url').oninput=()=>{el('link-result').replaceChildren();el('link-result').hidden=true;};
 const privacyButton=el<HTMLButtonElement>('privacy-button');
 privacyButton.onclick=()=>{
   const show=el('privacy-panel').hidden;

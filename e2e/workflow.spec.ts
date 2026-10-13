@@ -49,7 +49,7 @@ test('MIME mismatch and malicious filename are text, never script',async({page})
  const dialogs:string[]=[];page.on('dialog',d=>{dialogs.push(d.message());void d.dismiss();});
  await load(page,'<img src=x onerror=alert(1)>.html','text/html');
  await expect(page.locator('#file-warning')).toContainText('does not match');await expect(page.locator('#file-name')).toContainText('<img');expect(await page.locator('#file-name img').count()).toBe(0);expect(dialogs).toEqual([]);
- await page.locator('summary').click();await expect(page.locator('#metadata')).toContainText('tEXt');await expect(page.locator('#metadata')).not.toContainText('PRIVATE');
+ await page.locator('#workspace summary').click();await expect(page.locator('#metadata')).toContainText('tEXt');await expect(page.locator('#metadata')).not.toContainText('PRIVATE');
 });
 test('unsupported, malformed, animated and dimension bomb inputs fail honestly then recover',async({page})=>{
  const large=png();large.writeUInt32BE(9000,16);
@@ -225,6 +225,8 @@ test('crop preview drag and keyboard sliders reposition real exported pixels',as
  await expect(page.locator('#crop-x')).toHaveValue('50');
  await expect(page.locator('#crop-y')).toBeDisabled();
  const img=page.locator('#preview');
+ await expect(page.locator('#cancel')).toBeHidden();
+ await expect.poll(()=>img.evaluate(image=>(image as HTMLImageElement).complete&&(image as HTMLImageElement).naturalWidth===4)).toBe(true);
  const original=await img.getAttribute('src');
  const box=await img.boundingBox();expect(box).toBeTruthy();
  const x=box!.x+box!.width/2,y=box!.y+box!.height/2;
@@ -340,6 +342,24 @@ test('media source actions are explicit, safe and invalidated when edited',async
 test('production CSP blocks network and inline script, workers still function',async({page,request})=>{
  const response=await request.get('/');expect(response.headers()['content-security-policy']).toContain("connect-src 'none'");expect(response.headers()['content-security-policy']).not.toContain('unsafe-eval');expect(response.headers()['x-content-type-options']).toBe('nosniff');
  const blocked=await page.evaluate(async()=>{try{await fetch('https://example.com/');return false;}catch{return true;}});expect(blocked).toBe(true);await page.evaluate(()=>{const s=document.createElement('script');s.textContent="document.documentElement.dataset.inlineScriptRan='yes'";document.head.append(s);});await expect(page.locator('html')).not.toHaveAttribute('data-inline-script-ran','yes');await load(page);
+});
+test('category workspaces expose contextual controls and preserve the edited image',async({page})=>{
+ await load(page);await page.getByRole('button',{name:'Open in Photo',exact:true}).click();await expect(page.locator('button[data-category="creative"]')).toHaveAttribute('aria-current','page');await expect(page.locator('#photo-tools')).toBeVisible();await expect(page.locator('#batch-panel')).toBeHidden();await expect(page.locator('#pdf-pages')).toBeHidden();
+ await page.getByRole('button',{name:'Rotate 90°'}).click();await expect(page.locator('#width')).toHaveValue('4');await expect(page.locator('#cancel')).toBeHidden();
+ await page.locator('button[data-category="images"]').click();await expect(page.locator('#batch-panel')).toBeVisible();await expect(page.locator('#photo-tools')).toBeHidden();await expect(page.getByRole('table')).toContainText('Transparent areas become white');
+ await page.locator('button[data-category="pdf"]').click();await expect(page.locator('#batch-panel')).toBeHidden();await expect(page.locator('#pdf-pages')).toBeVisible();await page.getByRole('button',{name:'Choose page images'}).click();await expect(page.locator('#pdf-page-files')).toBeFocused();
+ await page.locator('button[data-category="video"]').click();await expect(page.locator('#link-entry')).toBeVisible();await expect(page.locator('#file-entry')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();
+ await page.locator('button[data-category="audio"]').click();await expect(page.locator('[data-surface="audio"]')).toContainText('original WAV');
+ for(const c of ['documents','archives','data']){await page.locator(`button[data-category="${c}"]`).click();await expect(page.locator('#heading')).toBeVisible();await expect(page.locator('#entry-panel')).toBeHidden();await expect(page.locator(`[data-surface="${c}"]`)).toBeVisible();await expect(page.locator('#main')).toBeFocused();}
+ await page.locator('button[data-category="creative"]').click();await expect(page.locator('#width')).toHaveValue('4');await expect(page.locator('#file-name')).toHaveText('source.png');await expect(page.getByRole('button',{name:'Undo',exact:true})).toBeEnabled();
+ await page.getByRole('button',{name:'Create image'}).click();await expect(page.locator('#download')).toBeVisible();
+});
+test('all category surfaces fit narrow screens and input tabs separate flows',async({page},testInfo)=>{
+ for(const width of [320,390,768,1440]){await page.setViewportSize({width,height:900});for(const category of ['home','images','creative','pdf','video','audio','documents','archives','data']){await page.locator(`button[data-category="${category}"]`).click();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await expect(page.locator('button[data-category][aria-current="page"]')).toHaveCount(1);if(width===390||width===1440)await page.screenshot({path:testInfo.outputPath(`${category}-${width}.png`),fullPage:true});}}
+ await page.locator('button[data-category="home"]').click();await page.getByRole('button',{name:'Paste a link'}).click();await expect(page.locator('#batch-panel')).toBeHidden();await expect(page.locator('#pdf-pages')).toBeHidden();await expect(page.locator('#media-url')).toBeFocused();await page.getByRole('button',{name:'Drop a file'}).click();await expect(page.locator('#batch-panel')).toBeVisible();await expect(page.locator('#choose-file')).toBeFocused();
+});
+test('workspace and input changes cannot hide a running job cancellation',async({page})=>{
+ await load(page);await page.route('**/assets/image.worker-*.js',route=>route.fulfill({contentType:'text/javascript',body:'self.onmessage=()=>{}'}));await page.getByRole('button',{name:'Create image'}).click();await expect(page.locator('#cancel')).toBeVisible();await page.locator('button[data-category="video"]').click();await expect(page.locator('body')).toHaveAttribute('data-category','home');await page.getByRole('button',{name:'Paste a link'}).click();await expect(page.locator('#cancel')).toBeVisible();await page.locator('#cancel').click();await page.locator('button[data-category="video"]').click();await expect(page.locator('#link-entry')).toBeVisible();
 });
 test('cancelled Photo operation rolls back its pending parameters',async({page})=>{
  await load(page);await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
@@ -704,6 +724,7 @@ test('all disposable image workers terminate and all Blob URLs are revoked after
  await page.getByRole('button',{name:'Clear file'}).click();
  const cleared=await snapshot();
  expect(cleared.active).toBe(0);expect(cleared.live).toBe(0);
+ await page.locator('button[data-category="images"]').click();
  await page.locator('#batch-files').setInputFiles([
    {name:'one.png',mimeType:'image/png',buffer:png(400,300,false)},
    {name:'two.png',mimeType:'image/png',buffer:png(320,240,false)}

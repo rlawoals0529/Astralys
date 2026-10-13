@@ -36,12 +36,36 @@ function pngChunks(a: Uint8Array): Chunk[] {
     const size = d.getUint32(offset); const end = offset + 12 + size;
     if (end > a.length) fail();
     const type = text(a, offset + 4, 4);
+    // PNG chunk types must be four ASCII letters; the reserved third byte must be uppercase.
+    if (!/^[A-Za-z]{2}[A-Z][A-Za-z]$/.test(type)) fail('This PNG contains an invalid chunk type. Export a compatible copy.');
+    // Unknown critical chunks cannot be safely decoded or silently discarded.
+    if (/^[A-Z]/.test(type) && !['IHDR', 'PLTE', 'IDAT', 'IEND'].includes(type)) fail('This PNG contains an unsupported critical chunk. Export a compatible copy.');
+    // Validate each PNG chunk's CRC before trusting its structure or copying bytes.
+    let crc = 0xffffffff;
+    for (let i = offset + 4; i < end - 4; i++) {
+      crc ^= a[i];
+      for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+    }
+    if (((crc ^ 0xffffffff) >>> 0) !== d.getUint32(end - 4)) fail('This PNG has a damaged chunk checksum. Export a fresh copy.');
     if (chunks.length >= 4096) fail('Too many image chunks. Export a simpler copy.');
     chunks.push({ type, start: offset, data: offset + 8, end, size });
     offset = end;
     if (type === 'IEND') { if (size !== 0 || offset !== a.length) fail(); break; }
   }
   if (chunks.filter(c=>c.type==='IHDR').length !== 1 || chunks[0]?.type !== 'IHDR' || chunks[0].size !== 13 || chunks.at(-1)?.type !== 'IEND' || !chunks.some(c => c.type === 'IDAT')) fail();
+  // Validate IHDR color mode and palette requirements before trusting browser decoding.
+  const bitDepth = a[24], colorType = a[25];
+  const allowedDepths: Record<number, number[]> = { 0: [1,2,4,8,16], 2: [8,16], 3: [1,2,4,8], 4: [8,16], 6: [8,16] };
+  if (!allowedDepths[colorType]?.includes(bitDepth) || a[26] !== 0 || a[27] !== 0 || a[28] !== 0) fail('This PNG has unsupported image header settings. Export a fresh copy.');
+  const paletteChunk = chunks.find(c => c.type === 'PLTE');
+  if (colorType === 3 && !paletteChunk) fail('This indexed PNG is missing its palette. Export a fresh copy.');
+  if (paletteChunk && (colorType === 0 || colorType === 4 || paletteChunk.size === 0 || paletteChunk.size % 3 !== 0 || paletteChunk.size > 768 || (colorType === 3 && paletteChunk.size / 3 > 2 ** bitDepth))) fail('This PNG has an invalid palette. Export a fresh copy.');
+  // PNG permits at most one palette, before image data, and requires contiguous IDAT chunks.
+  const palette = chunks.findIndex(c => c.type === 'PLTE');
+  const firstData = chunks.findIndex(c => c.type === 'IDAT');
+  const lastData = chunks.reduce((last, c, i) => c.type === 'IDAT' ? i : last, -1);
+  if (chunks.filter(c => c.type === 'PLTE').length > 1 || (palette !== -1 && palette > firstData)) fail('This PNG has invalid critical chunk ordering. Export a fresh copy.');
+  if (chunks.slice(firstData, lastData + 1).some(c => c.type !== 'IDAT')) fail('This PNG has noncontiguous image data. Export a fresh copy.');
   return chunks;
 }
 function webpChunks(a: Uint8Array): Chunk[] {

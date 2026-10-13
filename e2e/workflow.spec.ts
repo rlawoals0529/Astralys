@@ -1,30 +1,10 @@
-import { test, expect, errors } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { inspect } from '../src/core/files';
 import { png, chunk } from '../tests/fixtures';
+import { openApp } from './navigation';
 async function load(page: import('@playwright/test').Page,name='source.png',mime='image/png',bytes=png()) {await page.locator('#file-input').setInputFiles({name,mimeType:mime,buffer:bytes});await expect(page.locator('#workspace')).toBeVisible();await expect(page.locator('#cancel')).toBeHidden();}
-test.beforeEach(async({page,browserName},testInfo)=>{
- const failures: string[]=[];let documentOk=false;
- page.on('pageerror',error=>failures.push(error.message));
- page.on('requestfailed',request=>failures.push(request.url()));
- page.on('response',response=>{if(response.status()>=400)failures.push(`${response.status()} ${response.url()}`);if(response.request().isNavigationRequest()&&response.url()==='http://127.0.0.1:4173/')documentOk=response.ok();});
- const navigate=()=>page.goto('/',{waitUntil:'commit',timeout:10_000});
- let response;
- try {response=await navigate();}
- catch(error) {
-  // Original, narrowly gated recovery for Playwright Firefox issue #42183.
-  // Never retry failed assertions, server errors, missing readiness or broken resources.
-  if(browserName!=='firefox'||!(error instanceof errors.TimeoutError))throw error;
-  const state=await page.evaluate(()=>({url:location.href,ready:document.readyState,app:document.documentElement.dataset.appReady,
-   resourcesComplete:performance.getEntriesByType('resource').every(entry=>(entry as PerformanceResourceTiming).responseEnd>0)}));
-  if(!documentOk||failures.length||state.url!=='http://127.0.0.1:4173/'||state.ready!=='complete'||state.app!=='true'||!state.resourcesComplete)throw error;
-  testInfo.annotations.push({type:'firefox-navigation-recovery',description:'Loaded app verified; one superseding navigation for Playwright #42183.'});
-  await testInfo.attach('firefox-navigation-recovery',{body:JSON.stringify(state),contentType:'application/json'});
-  response=await navigate();
- }
- expect(response?.ok()).toBe(true);
- await expect(page.locator('html')).toHaveAttribute('data-app-ready','true');
-});
+test.beforeEach(async({page,browserName},testInfo)=>{await openApp(page,browserName,testInfo);});
 test('original sample opens and the Photo workspace fits desktop and mobile',async({page},testInfo)=>{
  await page.screenshot({path:testInfo.outputPath('home-desktop.png'),fullPage:true});
  await page.locator('#sample').click();await expect(page.locator('#workspace')).toBeVisible();await expect(page.locator('#cancel')).toBeHidden();
@@ -49,10 +29,12 @@ test('MIME mismatch and malicious filename are text, never script',async({page})
  const dialogs:string[]=[];page.on('dialog',d=>{dialogs.push(d.message());void d.dismiss();});
  await load(page,'<img src=x onerror=alert(1)>.html','text/html');
  await expect(page.locator('#file-warning')).toContainText('does not match');await expect(page.locator('#file-name')).toContainText('<img');expect(await page.locator('#file-name img').count()).toBe(0);expect(dialogs).toEqual([]);
- await page.locator('summary').click();await expect(page.locator('#metadata')).toContainText('tEXt');await expect(page.locator('#metadata')).not.toContainText('PRIVATE');
+ await page.locator('#workspace summary').click();await expect(page.locator('#metadata')).toContainText('tEXt');await expect(page.locator('#metadata')).not.toContainText('PRIVATE');
 });
 test('unsupported, malformed, animated and dimension bomb inputs fail honestly then recover',async({page})=>{
  const large=png();large.writeUInt32BE(9000,16);
+ // Keep the dimension-bomb fixture structurally valid so the size guard, not CRC validation, rejects it.
+ const ihdr=chunk('IHDR',large.subarray(16,29));large.set(ihdr,8);
  const animated=Buffer.concat([png().subarray(0,33),chunk('acTL',Buffer.alloc(8)),png().subarray(33)]);
  for(const [name,buffer,message] of [['x.svg',Buffer.from('<svg onload="alert(1)"/>'),'not supported'],['broken.png',png().subarray(0,40),'malformed'],['large.png',large,'exceeds'],['animated.png',animated,'Animated PNG'],['x.pdf',Buffer.from('%PDF-1.7'),'PDF detected']] as const) {
   await page.locator('#file-input').setInputFiles({name,mimeType:'image/png',buffer});await expect(page.locator('#status')).toContainText(message);await expect(page.locator('#download')).toBeHidden();
@@ -223,6 +205,8 @@ test('crop preview drag and keyboard sliders reposition real exported pixels',as
  await expect(page.locator('#crop-x')).toHaveValue('50');
  await expect(page.locator('#crop-y')).toBeDisabled();
  const img=page.locator('#preview');
+ await expect(page.locator('#cancel')).toBeHidden();
+ await expect.poll(()=>img.evaluate(image=>(image as HTMLImageElement).complete&&(image as HTMLImageElement).naturalWidth===4)).toBe(true);
  const original=await img.getAttribute('src');
  const box=await img.boundingBox();expect(box).toBeTruthy();
  const x=box!.x+box!.width/2,y=box!.y+box!.height/2;
@@ -327,9 +311,35 @@ test('keyboard navigation and focus, category honesty, reduced motion and mobile
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(await page.evaluate(()=>matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
 });
+test('media source actions are explicit, safe and invalidated when edited',async({page})=>{
+ const requests:string[]=[];page.on('request',r=>{if(['fetch','xhr'].includes(r.resourceType()))requests.push(r.url());});
+ await page.getByRole('button',{name:'Paste a link'}).click();await page.locator('#media-url').fill('https://youtu.be/abc');await page.getByRole('button',{name:'Check link'}).click();
+ const original=page.getByRole('link',{name:'Open original on YouTube'});await expect(original).toHaveAttribute('href','https://youtu.be/abc');await expect(original).toHaveAttribute('rel','noopener noreferrer');await expect(original).toHaveAttribute('target','_blank');
+ await expect(page.getByRole('link',{name:'Owner download instructions'})).toHaveAttribute('href','https://support.google.com/youtube/answer/56100');
+ await page.locator('#media-url').fill('https://media.example/clip.mp4');await expect(page.locator('#link-result')).toBeHidden();await page.getByRole('button',{name:'Check link'}).click();await expect(page.getByRole('link',{name:'Open supplied media URL'})).toHaveAttribute('href','https://media.example/clip.mp4');
+ await page.locator('#media-url').fill('https://127.0.0.1/clip.mp4');await page.getByRole('button',{name:'Check link'}).click();await expect(page.locator('#link-result a')).toHaveCount(0);expect(requests).toEqual([]);
+});
 test('production CSP blocks network and inline script, workers still function',async({page,request})=>{
  const response=await request.get('/');expect(response.headers()['content-security-policy']).toContain("connect-src 'none'");expect(response.headers()['content-security-policy']).not.toContain('unsafe-eval');expect(response.headers()['x-content-type-options']).toBe('nosniff');
  const blocked=await page.evaluate(async()=>{try{await fetch('https://example.com/');return false;}catch{return true;}});expect(blocked).toBe(true);await page.evaluate(()=>{const s=document.createElement('script');s.textContent="document.documentElement.dataset.inlineScriptRan='yes'";document.head.append(s);});await expect(page.locator('html')).not.toHaveAttribute('data-inline-script-ran','yes');await load(page);
+});
+test('category workspaces expose contextual controls and preserve the edited image',async({page})=>{
+ await load(page);await page.getByRole('button',{name:'Open in Photo',exact:true}).click();await expect(page.locator('button[data-category="creative"]')).toHaveAttribute('aria-current','page');await expect(page.locator('#photo-tools')).toBeVisible();await expect(page.locator('#batch-panel')).toBeHidden();await expect(page.locator('#pdf-pages')).toBeHidden();
+ await page.getByRole('button',{name:'Rotate 90°'}).click();await expect(page.locator('#width')).toHaveValue('4');await expect(page.locator('#cancel')).toBeHidden();
+ await page.locator('button[data-category="images"]').click();await expect(page.locator('#batch-panel')).toBeVisible();await expect(page.locator('#photo-tools')).toBeHidden();await expect(page.getByRole('table')).toContainText('Transparent areas become white');
+ await page.locator('button[data-category="pdf"]').click();await expect(page.locator('#batch-panel')).toBeHidden();await expect(page.locator('#pdf-pages')).toBeVisible();await page.getByRole('button',{name:'Choose page images'}).click();await expect(page.locator('#pdf-page-files')).toBeFocused();
+ await page.locator('button[data-category="video"]').click();await expect(page.locator('#link-entry')).toBeVisible();await expect(page.locator('#file-entry')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();
+ await page.locator('button[data-category="audio"]').click();await expect(page.locator('[data-surface="audio"]')).toContainText('original WAV');
+ for(const c of ['documents','archives','data']){await page.locator(`button[data-category="${c}"]`).click();await expect(page.locator('#heading')).toBeVisible();await expect(page.locator('#entry-panel')).toBeHidden();await expect(page.locator(`[data-surface="${c}"]`)).toBeVisible();await expect(page.locator('#main')).toBeFocused();}
+ await page.locator('button[data-category="creative"]').click();await expect(page.locator('#width')).toHaveValue('4');await expect(page.locator('#file-name')).toHaveText('source.png');await expect(page.getByRole('button',{name:'Undo',exact:true})).toBeEnabled();
+ await page.getByRole('button',{name:'Create image'}).click();await expect(page.locator('#download')).toBeVisible();
+});
+test('all category surfaces fit narrow screens and input tabs separate flows',async({page},testInfo)=>{
+ for(const width of [320,390,768,1440]){await page.setViewportSize({width,height:900});for(const category of ['home','images','creative','pdf','video','audio','documents','archives','data']){await page.locator(`button[data-category="${category}"]`).click();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await expect(page.locator('button[data-category][aria-current="page"]')).toHaveCount(1);if(width===390||width===1440)await page.screenshot({path:testInfo.outputPath(`${category}-${width}.png`),fullPage:true});}}
+ await page.locator('button[data-category="home"]').click();await page.getByRole('button',{name:'Paste a link'}).click();await expect(page.locator('#batch-panel')).toBeHidden();await expect(page.locator('#pdf-pages')).toBeHidden();await expect(page.locator('#media-url')).toBeFocused();await page.getByRole('button',{name:'Drop a file'}).click();await expect(page.locator('#batch-panel')).toBeVisible();await expect(page.locator('#choose-file')).toBeFocused();
+});
+test('workspace and input changes cannot hide a running job cancellation',async({page})=>{
+ await load(page);await page.route('**/assets/image.worker-*.js',route=>route.fulfill({contentType:'text/javascript',body:'self.onmessage=()=>{}'}));await page.getByRole('button',{name:'Create image'}).click();await expect(page.locator('#cancel')).toBeVisible();await page.locator('button[data-category="video"]').click();await expect(page.locator('body')).toHaveAttribute('data-category','home');await page.getByRole('button',{name:'Paste a link'}).click();await expect(page.locator('#cancel')).toBeVisible();await page.locator('#cancel').click();await page.locator('button[data-category="video"]').click();await expect(page.locator('#link-entry')).toBeVisible();
 });
 test('cancelled Photo operation rolls back its pending parameters',async({page})=>{
  await load(page);await page.getByRole('button',{name:'Open in Photo',exact:true}).click();
@@ -694,6 +704,7 @@ test('all disposable image workers terminate and all Blob URLs are revoked after
  await page.getByRole('button',{name:'Clear file'}).click();
  const cleared=await snapshot();
  expect(cleared.active).toBe(0);expect(cleared.live).toBe(0);
+ await page.locator('button[data-category="images"]').click();
  await page.locator('#batch-files').setInputFiles([
    {name:'one.png',mimeType:'image/png',buffer:png(400,300,false)},
    {name:'two.png',mimeType:'image/png',buffer:png(320,240,false)}
@@ -882,4 +893,72 @@ test('16MP original export is rejected by raster admission and a smaller preset 
  expect(inspect(out)).toMatchObject({mime:'image/png',width:800,height:800,metadata:[]});
  await page.getByRole('button',{name:'Clear file'}).click();
  await expect(page.locator('#workspace')).toBeHidden();
+});
+
+// Simulate browser zoom by reducing the CSS viewport while retaining a desktop-sized
+// device scale factor. This checks responsive layout, not assistive-technology behavior.
+test('Photo export remains usable at narrow CSS viewports',async({page})=>{
+ await page.setViewportSize({width:320,height:720});
+ await page.locator('#sample').click();
+ await expect(page.locator('#workspace')).toBeVisible();
+ await expect(page.locator('#export-form')).toBeVisible();
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ const exportForm=page.locator('#export-form');
+ const bounds=await exportForm.boundingBox();
+ expect(bounds).not.toBeNull();
+ expect(bounds!.x).toBeGreaterThanOrEqual(0);
+ expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(321);
+ await page.getByRole('button',{name:'Create image'}).click();
+ await expect(page.locator('#download')).toBeVisible();
+});
+
+test('sequential exports replace stale download URLs and clear revokes the final URL',async({page})=>{
+ await load(page);
+ const urls:string[]=[];
+ for(const mime of ['image/png','image/jpeg','image/webp','image/png']) {
+  await page.locator('#format').selectOption(mime);
+  await page.getByRole('button',{name:'Create image'}).click();
+  const download=page.locator('#download');
+  await expect(download).toBeVisible();
+  const url=await download.getAttribute('href');
+  expect(url).toMatch(/^blob:/);
+  expect(urls).not.toContain(url);
+  urls.push(url!);
+  if(urls.length>1) {
+   const previous=urls[urls.length-2];
+   await expect.poll(()=>page.evaluate(async u=>{
+    try {const response=await fetch(u);return response.ok;}catch{return false;}
+   },previous)).toBe(false);
+  }
+ }
+ await page.getByRole('button',{name:'Clear file'}).click();
+ await expect(page.locator('#workspace')).toBeHidden();
+ await expect.poll(()=>page.evaluate(async u=>{
+  try {return (await fetch(u)).ok;}catch{return false;}
+ },urls.at(-1)!)).toBe(false);
+});
+
+test('transparent PNG export retains decoded alpha and strips metadata',async({page})=>{
+ await load(page,'translucent.png','image/png',png(8,4,true));
+ await page.locator('#format').selectOption('image/png');
+ await page.getByRole('button',{name:'Create image'}).click();
+ await expect(page.locator('#download')).toBeVisible();
+ const waiting=page.waitForEvent('download');
+ await page.getByRole('link',{name:'Download image'}).click();
+ const output=await readFile((await (await waiting).path())!);
+ expect(inspect(output)).toMatchObject({mime:'image/png',width:8,height:4,metadata:[]});
+ const decoded=await page.evaluate(async bytes=>{
+  const bitmap=await createImageBitmap(new Blob([new Uint8Array(bytes)],{type:'image/png'}));
+  try {
+   const canvas=document.createElement('canvas');canvas.width=bitmap.width;canvas.height=bitmap.height;
+   const ctx=canvas.getContext('2d',{willReadFrequently:true})!;
+   ctx.drawImage(bitmap,0,0);
+   return [...ctx.getImageData(3,2,1,1).data];
+  } finally {bitmap.close();}
+ },Array.from(output));
+ expect(decoded[3]).toBeGreaterThanOrEqual(126);
+ expect(decoded[3]).toBeLessThanOrEqual(130);
+ expect(decoded[0]).toBeGreaterThan(195);
+ expect(decoded[1]).toBeGreaterThan(45);
+ expect(decoded[2]).toBeGreaterThan(105);
 });

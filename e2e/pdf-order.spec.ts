@@ -10,6 +10,7 @@ const pages=[
   {name:'<img src=x onerror=alert(1)>.png',mimeType:'image/png',buffer:png(16,8,false)},
 ];
 test('loaded image workspace precedes optional multi-file tools in visual and keyboard order',async({page})=>{
+  await page.locator('button[data-category="home"]').click();
   await page.locator('#sample').click();
   await expect(page.locator('#workspace')).toBeVisible();
   for(const width of [320,768,1440]){
@@ -24,6 +25,7 @@ test('loaded image workspace precedes optional multi-file tools in visual and ke
 });
 test.beforeEach(async({page,browserName},testInfo)=>{
   await openApp(page,browserName,testInfo);
+  await page.locator('button[data-category="pdf"]').click();
   await page.locator('#pdf-page-files').setInputFiles(pages);
 });
 test('keyboard page reordering changes downloaded PDF stream order without interpreting names',async({page})=>{

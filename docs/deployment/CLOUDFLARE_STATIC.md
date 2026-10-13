@@ -1,5 +1,11 @@
 # Cloudflare Workers Static Assets — deployment readiness only
 
+## October 12, 2026: configured preview build repair
+
+The user supplied the live URL `https://astralys.rlawoals0529.workers.dev` and authorized passing PR merges with automatic deployment. An HTTP check returned 200 with the expected closed-network CSP, nosniff, no-referrer and same-origin opener policy. This supersedes the historical no-deployment statements below for that supplied endpoint; account settings and release issue #8 remain unverified.
+
+Cloudflare's supplied branch-build log completed `npm run build`, then failed `npx wrangler preview` because the configuration lacked `previews`. The top-level `previews = { }` follows [Cloudflare's documented static-assets example](https://developers.cloudflare.com/workers/previews/configuration/). Assets and compatibility stay top-level; no Worker code, routes, credentials, storage or preview bindings are added. The existing static-bundle guard requires an empty preview object. No dashboard/billing/visibility settings are changed. The configured Cloudflare integration may publish branch previews; repository privacy is not access control for their URLs. Successful hosting checks and served headers still require verification after the change.
+
 Reviewed 10 October 2026. **No Cloudflare account connected, no Worker deployed, no domain configured, and no credentials stored in this repo.** Publication is prohibited until the release gate (issue #8) and explicit deployment authorization.
 
 ## Recommendation

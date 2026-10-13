@@ -78,6 +78,12 @@
 #pdf-pages #pdf-status{font-size:12px;line-height:1.6;overflow-wrap:anywhere}
 #pdf-pages .batch-heading p:last-child{margin:0 0 16px}
 #pdf-page-size,#pdf-page-files{max-width:100%}
+.pdf-page-order{padding-left:24px;margin:16px 0;display:grid;gap:12px}
+.pdf-page-order:empty{display:none}
+.pdf-page-order li{padding-left:4px;min-width:0;font-size:13px}
+.pdf-page-name{display:block;overflow-wrap:anywhere;margin-bottom:6px}
+.pdf-page-actions{display:flex;flex-wrap:wrap;gap:6px}
+.pdf-page-actions button{font-size:12px;min-height:40px;padding:8px 12px}
 
 /* Mobile workspace polish: avoid clipped controls and improve touch targets. */
 @media(max-width:650px){

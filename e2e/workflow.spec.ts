@@ -1,30 +1,10 @@
-import { test, expect, errors } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { inspect } from '../src/core/files';
 import { png, chunk } from '../tests/fixtures';
+import { openApp } from './navigation';
 async function load(page: import('@playwright/test').Page,name='source.png',mime='image/png',bytes=png()) {await page.locator('#file-input').setInputFiles({name,mimeType:mime,buffer:bytes});await expect(page.locator('#workspace')).toBeVisible();await expect(page.locator('#cancel')).toBeHidden();}
-test.beforeEach(async({page,browserName},testInfo)=>{
- const failures: string[]=[];let documentOk=false;
- page.on('pageerror',error=>failures.push(error.message));
- page.on('requestfailed',request=>failures.push(request.url()));
- page.on('response',response=>{if(response.status()>=400)failures.push(`${response.status()} ${response.url()}`);if(response.request().isNavigationRequest()&&response.url()==='http://127.0.0.1:4173/')documentOk=response.ok();});
- const navigate=()=>page.goto('/',{waitUntil:'commit',timeout:10_000});
- let response;
- try {response=await navigate();}
- catch(error) {
-  // Original, narrowly gated recovery for Playwright Firefox issue #42183.
-  // Never retry failed assertions, server errors, missing readiness or broken resources.
-  if(browserName!=='firefox'||!(error instanceof errors.TimeoutError))throw error;
-  const state=await page.evaluate(()=>({url:location.href,ready:document.readyState,app:document.documentElement.dataset.appReady,
-   resourcesComplete:performance.getEntriesByType('resource').every(entry=>(entry as PerformanceResourceTiming).responseEnd>0)}));
-  if(!documentOk||failures.length||state.url!=='http://127.0.0.1:4173/'||state.ready!=='complete'||state.app!=='true'||!state.resourcesComplete)throw error;
-  testInfo.annotations.push({type:'firefox-navigation-recovery',description:'Loaded app verified; one superseding navigation for Playwright #42183.'});
-  await testInfo.attach('firefox-navigation-recovery',{body:JSON.stringify(state),contentType:'application/json'});
-  response=await navigate();
- }
- expect(response?.ok()).toBe(true);
- await expect(page.locator('html')).toHaveAttribute('data-app-ready','true');
-});
+test.beforeEach(async({page,browserName},testInfo)=>{await openApp(page,browserName,testInfo);});
 test('original sample opens and the Photo workspace fits desktop and mobile',async({page},testInfo)=>{
  await page.screenshot({path:testInfo.outputPath('home-desktop.png'),fullPage:true});
  await page.locator('#sample').click();await expect(page.locator('#workspace')).toBeVisible();await expect(page.locator('#cancel')).toBeHidden();
